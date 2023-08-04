@@ -1,7 +1,12 @@
 from peewee import *
 import os
+import yaml
 
-db_name = "parking_spots.db"
+# Получаем данные из файла настроек
+with open('settings.yml', 'r') as file:
+    CONSTANTS = yaml.safe_load(file)
+
+db_name = CONSTANTS['DB_NAME']
 db = SqliteDatabase(db_name)
 
 """ Сущности, описывающие хранимые в БД записи """

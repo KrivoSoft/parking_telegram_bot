@@ -1,12 +1,13 @@
 from entities import *
 from datetime import datetime, timedelta, date
+import yaml
 
-# Парковочные места для занесения в БД при создании самой БД.
-# Можно дать осмысленные имена. Например: "Самое правое у столба".
-parking_spots = ["А01", "А02", "B04"]
+# Получаем данные из файла настроек
+with open('settings.yml', 'r') as file:
+    CONSTANTS = yaml.safe_load(file)
 
-# Период, на который будет предложено бронирование парковочных мест.
-reservation_period_days = 4
+parking_spots = CONSTANTS['PARKING_SPOTS']
+reservation_period_days = CONSTANTS['RESERVATION_PERIOD_DAYS']
 
 
 def is_spot_free(checking_spot, checking_date):
