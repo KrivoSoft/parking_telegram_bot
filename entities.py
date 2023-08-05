@@ -1,11 +1,13 @@
 from peewee import *
 import os
 import yaml
+from datetime import datetime, timedelta, date
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 
+reservation_period_days = CONSTANTS['RESERVATION_PERIOD_DAYS']
 db_name = CONSTANTS['DB_NAME']
 db = SqliteDatabase(db_name)
 
@@ -75,3 +77,38 @@ def is_db_created():
         return True
     else:
         return False
+
+
+def is_spot_free(checking_spot, checking_date):
+    """ Проверка свободно ли парковочное место на определённую дату """
+    check_query = Reservation.select().where(
+        Reservation.booking_date == checking_date,
+        Reservation.parking_spot_id == checking_spot.id
+    )
+    if len(check_query) == 0:
+        return True
+    else:
+        return False
+
+
+def get_booking_options():
+    """ Получаем доступные для бронирования варианты """
+    current_date = date.today()
+
+    # Получаем даты, начиная с завтрашнего дня, на которые можно бронировать парковочные места
+    parking_reservation_date_range = []
+    for i in range(1, reservation_period_days + 1):
+        one_date = current_date + timedelta(days=i)
+        parking_reservation_date_range.append(one_date)
+
+    available_for_book_dates = {}
+
+    all_spots = ParkingSpot.select()
+
+    for one_date in parking_reservation_date_range:
+        available_for_book_dates[one_date] = []
+        for one_spot in all_spots:
+            if is_spot_free(one_spot, one_date):
+                available_for_book_dates[one_date].append(one_spot.name)
+
+    return available_for_book_dates
