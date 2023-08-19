@@ -47,13 +47,13 @@ class Reservation(BaseModel):
         return self.booking_date
 
 
-def create_tables():
+def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
     db.create_tables([ParkingSpot, Reservation])
 
 
-def create_spots(spots_list):
+def create_spots(spots_list: list) -> list:
     """ Запись в БД информации из конфига по доступным парковочным местам"""
     spots_obj_array = []
 
@@ -71,7 +71,7 @@ def create_reservation(spot, date, username):
     new_reservation.save()
 
 
-def is_db_created():
+def is_db_created() -> bool:
     """ Проверка есть ли база данных sqlite в текущем каталоге """
     if os.path.isfile(db_name):
         return True
@@ -79,7 +79,7 @@ def is_db_created():
         return False
 
 
-def is_spot_free(checking_spot, checking_date):
+def is_spot_free(checking_spot, checking_date) -> bool:
     """ Проверка свободно ли парковочное место на определённую дату """
     check_query = Reservation.select().where(
         Reservation.booking_date == checking_date,

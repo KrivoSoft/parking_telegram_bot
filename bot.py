@@ -1,25 +1,44 @@
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Bot, Dispatcher
 import yaml
+from aiogram.filters import Command
+from aiogram.types import ReplyKeyboardRemove, \
+    ReplyKeyboardMarkup, KeyboardButton, \
+    InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 API_TOKEN = CONSTANTS['API_TOKEN']
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+bot: Bot = Bot(token=API_TOKEN)
+dp: Dispatcher = Dispatcher()
 
 
-@dp.message_handler(commands=['start'])  # Явно указываем в декораторе, на какую команду реагируем.
-async def send_welcome(message: types.Message):
-    await message.reply("Привет!\nЯ бот для бронирования парковки\nОтправь мне любое сообщение.")
+# Этот хэндлер будет срабатывать на команду "/start"
+@dp.message(Command(commands=["start"]))
+async def process_start_command(message: Message):
+    await message.answer('Привет!\nМеня зовут Эхо-бот!\nНапиши мне что-нибудь')
 
 
-@dp.message_handler() #Создаём новое событие, которое запускается в ответ на любой текст, введённый пользователем.
-async def echo(message: types.Message): #Создаём функцию с простой задачей — отправить обратно текст.
-    await message.answer("Hello")
+# Этот хэндлер будет срабатывать на команду "/help"
+@dp.message(Command(commands=['help']))
+async def process_help_command(message: Message):
+    await message.answer('Напиши мне что-нибудь и в ответ '
+                         'я пришлю тебе твое сообщение')
+
+
+# Этот хэндлер будет срабатывать на любые ваши текстовые сообщения,
+# кроме команд "/start" и "/help"
+@dp.message()
+async def send_echo(message: Message):
+    await message.reply(text=message.text)
+
+
+if __name__ == '__main__':
+    dp.run_polling(bot)
 
 
 def run_bot():
     print("Запускаю бота...")
-    executor.start_polling(dp, skip_updates=True)
+    dp.run_polling(bot)

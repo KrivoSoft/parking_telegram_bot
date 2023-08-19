@@ -19,9 +19,7 @@ if is_db_created():
 else:
     print("Базы данных нет. Создаю...")
     create_tables()
-    print("Создал.")
-
     parking_spots_obj = create_spots(parking_spots)
-    print(f"Записал в базу парковочные места.")
+    print("Записал в базу парковочные места.")
 
 bot.run_bot()
