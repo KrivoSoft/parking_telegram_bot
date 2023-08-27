@@ -9,6 +9,7 @@ from aiogram.types import ReplyKeyboardRemove, \
     InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResult, InlineQueryResultsButton, InlineQueryResultArticle, \
     InputTextMessageContent
 from aiogram.types import Message, InlineQuery
+from entities import get_booking_options
 
 TEXT_BUTTON_1 = "Забронировать место на парковке"
 TEXT_BUTTON_2 = "Вывести список брони"
@@ -51,10 +52,22 @@ async def process_help_command(message: Message):
 # Этот хэндлер будет срабатывать на просьбу забронировать место и удалять клавиатуру
 @dp.message(F.text == TEXT_BUTTON_1)
 async def process_dog_answer(message: Message):
-    await message.reply(
-        text='Сейчас посмотрим, что я могу Вам предложить...',
-        reply_markup=ReplyKeyboardRemove()
-    )
+    available_options = get_booking_options()
+    if len(available_options) > 0:
+        for one_day in available_options:
+            day_str = one_day.strftime("%d/%m/%Y")
+            print(f"{day_str}")
+            # Добавить inline-кнопку с датой
+
+        await message.reply(
+            text='Сейчас посмотрим, что я могу Вам предложить...',
+            reply_markup=ReplyKeyboardRemove()
+        )
+    else:
+        await message.reply(
+            text='К сожалению, все места заняты 😢',
+            reply_markup=ReplyKeyboardRemove()
+        )
 
 
 if __name__ == '__main__':
