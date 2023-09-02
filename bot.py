@@ -47,22 +47,33 @@ API_TOKEN = CONSTANTS['API_TOKEN']
 bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
-button_1: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
-button_2: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
 
-# Создаем объект клавиатуры, добавляя в него кнопки
-keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
-    keyboard=[[button_1, button_2]],
-    resize_keyboard=True
-)
+def create_main_menu_keyboard(user_role: str) -> ReplyKeyboardMarkup:
+    """ Создаёт клавиатуру, которая будет выводиться на команду /start """
+    button_1: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
+    button_2: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
+
+    buttons_list = [button_1]
+
+    if user_role == "admin":
+        buttons_list.append(button_2)
+
+    # Создаем объект клавиатуры, добавляя в него кнопки
+    keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
+        keyboard=[buttons_list],
+        resize_keyboard=True
+    )
+
+    return keyboard
 
 
 # Этот хэндлер будет срабатывать на команду "/start"
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message):
+
     await message.answer(
         START_MESSAGE,
-        reply_markup=keyboard
+        reply_markup=create_main_menu_keyboard("admin")
     )
 
 

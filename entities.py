@@ -126,3 +126,7 @@ def get_booking_options():
     available_dates_for_book = {key: value for key, value in available_dates_for_book.items() if value}
 
     return available_dates_for_book
+
+
+def is_user_admin():
+    pass
