@@ -9,7 +9,7 @@ from aiogram.types import ReplyKeyboardRemove, \
     InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResult, InlineQueryResultsButton, InlineQueryResultArticle, \
     InputTextMessageContent, CallbackQuery
 from aiogram.types import Message, InlineQuery
-from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation
+from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation, is_user_admin
 
 # Текст, который будет выводить бот в сообщениях
 TEXT_BUTTON_1 = "Забронировать место на парковке"
@@ -48,14 +48,14 @@ bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
 
-def create_main_menu_keyboard(user_role: str) -> ReplyKeyboardMarkup:
+def create_main_menu_keyboard(is_show_full_version: bool) -> ReplyKeyboardMarkup:
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
     button_1: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
     button_2: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
 
     buttons_list = [button_1]
 
-    if user_role == "admin":
+    if is_show_full_version:
         buttons_list.append(button_2)
 
     # Создаем объект клавиатуры, добавляя в него кнопки
@@ -70,10 +70,15 @@ def create_main_menu_keyboard(user_role: str) -> ReplyKeyboardMarkup:
 # Этот хэндлер будет срабатывать на команду "/start"
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message):
+    requester_username = message.from_user.username
+    requester_is_admin = False
+
+    if is_user_admin(requester_username):
+        requester_is_admin = True
 
     await message.answer(
         START_MESSAGE,
-        reply_markup=create_main_menu_keyboard("admin")
+        reply_markup=create_main_menu_keyboard(is_show_full_version=requester_is_admin)
     )
 
 

@@ -113,7 +113,7 @@ def get_parking_spot_by_name(spot_name: str, all_spots: list) -> ParkingSpot or 
                 return one_spot
 
 
-def get_booking_options():
+def get_booking_options() -> dict:
     """ Получаем доступные для бронирования варианты """
     current_date = date.today()
 
@@ -149,5 +149,11 @@ def add_administrator(administrator_usernames: list) -> list:
     return administrators_list_obj
 
 
-def is_user_admin():
-    pass
+def is_user_admin(username: str) -> bool:
+    admin = Administrator.select().where(
+        Administrator.username == username
+    )
+    if admin:
+        return True
+    else:
+        return False
