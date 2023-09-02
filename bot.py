@@ -102,6 +102,9 @@ async def process_button_callback(callback_query: CallbackQuery):
     booking_spot = query_data[2]
     requester_username = callback_query.from_user.username
 
+    if requester_username == "":
+        requester_username = callback_query.from_user.full_name
+
     booking_spot_obj = get_parking_spot_by_name(booking_spot, parking_spots_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
