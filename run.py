@@ -22,4 +22,4 @@ else:
     parking_spots_obj = create_spots(parking_spots)
     print("Записал в базу парковочные места.")
 
-bot.run_bot()
+bot.run_bot(parking_spots_obj)

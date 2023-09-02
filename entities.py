@@ -65,9 +65,9 @@ def create_spots(spots_list: list) -> list:
     return spots_obj_array
 
 
-def create_reservation(spot, date, username):
+def create_reservation(spot_id: int, date: str, username: str) -> None:
     """ Создание новой записи в БД о бронировании парковочного места """
-    new_reservation = Reservation.create(parking_spot_id=spot, booking_date=date, username=username)
+    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, username=username)
     new_reservation.save()
 
 
@@ -79,7 +79,7 @@ def is_db_created() -> bool:
         return False
 
 
-def is_spot_free(checking_spot, checking_date) -> bool:
+def is_spot_free(checking_spot: ParkingSpot, checking_date) -> bool:
     """ Проверка свободно ли парковочное место на определённую дату """
     check_query = Reservation.select().where(
         Reservation.booking_date == checking_date,
@@ -89,6 +89,18 @@ def is_spot_free(checking_spot, checking_date) -> bool:
         return True
     else:
         return False
+
+
+def get_parking_spot_by_name(spot_name: str, all_spots: list) -> ParkingSpot or None:
+    check_query = ParkingSpot.select().where(
+        ParkingSpot.name == spot_name
+    )
+    if len(check_query) == 0:
+        return None
+    else:
+        for one_spot in all_spots:
+            if one_spot.name == spot_name:
+                return one_spot
 
 
 def get_booking_options():

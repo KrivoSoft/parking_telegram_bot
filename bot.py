@@ -9,13 +9,13 @@ from aiogram.types import ReplyKeyboardRemove, \
     InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResult, InlineQueryResultsButton, InlineQueryResultArticle, \
     InputTextMessageContent, CallbackQuery
 from aiogram.types import Message, InlineQuery
-from entities import get_booking_options
+from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation
 
 TEXT_BUTTON_1 = "Забронировать место на парковке"
 TEXT_BUTTON_2 = "Отправь отчёт по брони"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "Напиши мне что-нибудь"
-
+parking_spots_obj = [] # Список всех праковочных мест
 
 def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMarkup:
     buttons_list = []
@@ -98,14 +98,19 @@ async def process_button_callback(callback_query: CallbackQuery):
 
     query_data = button_data.split()
     booking_date = query_data[1]
-    booking_place = query_data[2]
+    booking_spot = query_data[2]
 
-    # Ваш код для обработки нажатия на кнопку
-    print('Бронируем', booking_date)
+    booking_spot_obj = get_parking_spot_by_name(booking_spot, parking_spots_obj)
+    if booking_spot_obj is None:
+        print("Ошибка. Парковочное место не найдено.")
+
+    if is_spot_free(booking_spot_obj, booking_date):
+        create_reservation(booking_spot_obj.id, booking_date, 'test_user')
+
     # Отправляем ответ пользователю
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
-        text=f'Хорошо) Забронировала Вам место "{booking_place}" на {booking_date}'
+        text=f'Хорошо) Забронировала Вам место "{booking_spot}" на {booking_date}'
     )
 
 
@@ -113,6 +118,9 @@ if __name__ == '__main__':
     dp.run_polling(bot)
 
 
-def run_bot():
+def run_bot(parking_spots):
+    global parking_spots_obj
+    parking_spots_obj = parking_spots
+
     print("Запускаю бота...")
     dp.run_polling(bot)
