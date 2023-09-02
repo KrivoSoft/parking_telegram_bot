@@ -113,14 +113,16 @@ def get_booking_options():
         one_date = current_date + timedelta(days=i)
         parking_reservation_date_range.append(one_date)
 
-    available_for_book_dates = {}
-
+    available_dates_for_book = {}
     all_spots = ParkingSpot.select()
 
     for one_date in parking_reservation_date_range:
-        available_for_book_dates[one_date] = []
+        available_dates_for_book[one_date] = []
         for one_spot in all_spots:
             if is_spot_free(one_spot, one_date):
-                available_for_book_dates[one_date].append(one_spot.name)
+                available_dates_for_book[one_date].append(one_spot.name)
 
-    return available_for_book_dates
+    # Удаляем из словаря все даты, для которых нет свободных мест
+    available_dates_for_book = {key: value for key, value in available_dates_for_book.items() if value}
+
+    return available_dates_for_book

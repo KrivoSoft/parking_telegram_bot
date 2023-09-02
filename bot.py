@@ -11,11 +11,16 @@ from aiogram.types import ReplyKeyboardRemove, \
 from aiogram.types import Message, InlineQuery
 from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation
 
+# Текст, который будет выводить бот в сообщениях
 TEXT_BUTTON_1 = "Забронировать место на парковке"
 TEXT_BUTTON_2 = "Отправь отчёт по брони"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "Напиши мне что-нибудь"
+ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
+DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить...'
+
 parking_spots_obj = [] # Список всех праковочных мест
+
 
 def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMarkup:
     buttons_list = []
@@ -69,24 +74,20 @@ async def process_help_command(message: Message):
 
 # Этот хэндлер будет срабатывать на просьбу забронировать место и удалять клавиатуру
 @dp.message(F.text == TEXT_BUTTON_1)
-async def process_dog_answer(message: Message):
+async def process_answer(message: Message):
     available_options = get_booking_options()
     print(available_options)
+
     if len(available_options) > 0:
-        # for one_day in available_options:
-        #     day_str = one_day.strftime("%d/%m/%Y")
-        #
-        #     # Добавить inline-кнопку с датой
         inline_keyboard = get_inline_keyboard_for_booking(available_options)
 
         await message.reply(
-            text='Сейчас посмотрим, что я могу Вам предложить...',
+            text=DATE_REQUEST_MESSAGE,
             reply_markup=inline_keyboard
-            # reply_markup=ReplyKeyboardRemove()
         )
     else:
         await message.reply(
-            text='К сожалению, все места заняты 😢',
+            text=ALL_SPOT_ARE_BUSY_MESSAGE,
             reply_markup=ReplyKeyboardRemove()
         )
 
@@ -99,18 +100,25 @@ async def process_button_callback(callback_query: CallbackQuery):
     query_data = button_data.split()
     booking_date = query_data[1]
     booking_spot = query_data[2]
+    requester_username = callback_query.from_user.username
 
     booking_spot_obj = get_parking_spot_by_name(booking_spot, parking_spots_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
 
+    # Проверяем, что слот свободен.
+    # Если это так, то создаём запись в БД
     if is_spot_free(booking_spot_obj, booking_date):
-        create_reservation(booking_spot_obj.id, booking_date, 'test_user')
+        create_reservation(
+            spot_id=booking_spot_obj.id,
+            date=booking_date,
+            username=requester_username
+        )
 
     # Отправляем ответ пользователю
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
-        text=f'Хорошо) Забронировала Вам место "{booking_spot}" на {booking_date}'
+        text=f'Хорошо)\nЗабронировала Вам место "{booking_spot}" на {booking_date}'
     )
 
 
