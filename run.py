@@ -7,6 +7,7 @@ with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 
 parking_spots = CONSTANTS['PARKING_SPOTS']
+administrator_usernames = CONSTANTS['ADMINISTRATORS']
 
 
 if is_db_created():
@@ -19,6 +20,7 @@ if is_db_created():
 else:
     print("Базы данных нет. Создаю...")
     create_tables()
+    add_administrator(administrator_usernames)
     parking_spots_obj = create_spots(parking_spots)
     print("Записал в базу парковочные места.")
 

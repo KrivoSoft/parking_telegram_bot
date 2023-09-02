@@ -47,10 +47,20 @@ class Reservation(BaseModel):
         return self.booking_date
 
 
+class Administrator(BaseModel):
+    username = CharField()
+
+    class Meta:
+        table_name = 'administrators'
+
+    def __repr__(self):
+        return self.username
+
+
 def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
-    db.create_tables([ParkingSpot, Reservation])
+    db.create_tables([ParkingSpot, Reservation, Administrator])
 
 
 def create_spots(spots_list: list) -> list:
@@ -126,6 +136,17 @@ def get_booking_options():
     available_dates_for_book = {key: value for key, value in available_dates_for_book.items() if value}
 
     return available_dates_for_book
+
+
+def add_administrator(administrator_usernames: list) -> list:
+    administrators_list_obj = []
+
+    for username in administrator_usernames:
+        admin_obj = Administrator.create(username=username)
+        administrators_list_obj.append(admin_obj)
+        admin_obj.save()
+
+    return administrators_list_obj
 
 
 def is_user_admin():
