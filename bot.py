@@ -8,7 +8,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name,
-    create_reservation, is_user_admin, Reservation)
+    create_reservation, is_user_admin, Reservation, ParkingSpot)
 
 # Текст, который будет выводить бот в сообщениях
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
@@ -160,13 +160,11 @@ async def process_answer(message: Message):
     is_allowed = is_user_admin(requester_username)
 
     if not is_allowed:
-        print("Не позволено")
         await bot.send_message(
             chat_id=message.chat.id,
             text=ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
         return
-    print("Позволено")
     # Вычисление даты две недели назад
     two_weeks_ago = datetime.now() - timedelta(weeks=2)
     # Выполнение запроса на выборку
@@ -176,10 +174,8 @@ async def process_answer(message: Message):
     # Вывод результатов
     for reservation in reservations:
         report += f"Дата бронирования: {reservation.booking_date}. "
-        report += f"Место: {Reservation.parking_spot_id.name}. "
+        report += f"Место: {reservation.parking_spot_id.name}. "
         report += f"Пользователь: {reservation.username}.\n\n"
-
-    print(report)
 
     await bot.send_message(
         chat_id=message.chat.id,
