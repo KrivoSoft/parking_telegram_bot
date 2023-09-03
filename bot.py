@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Any
 import yaml
 from aiogram import Bot, Dispatcher, F
@@ -9,15 +10,18 @@ from aiogram.types import ReplyKeyboardRemove, \
     InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResult, InlineQueryResultsButton, InlineQueryResultArticle, \
     InputTextMessageContent, CallbackQuery
 from aiogram.types import Message, InlineQuery
-from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation, is_user_admin
+from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation, is_user_admin, \
+    Reservation
 
 # Текст, который будет выводить бот в сообщениях
-TEXT_BUTTON_1 = "Забронировать место на парковке"
+TEXT_BUTTON_1 = "Забронируй мне место на парковке"
 TEXT_BUTTON_2 = "Отправь отчёт по брони"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "Напиши мне что-нибудь"
 ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
 DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить...'
+ACCESS_IS_NOT_ALLOWED_MESSAGE = "Обмануть меня захотели? Ваш логин я записала и передам руководству какой Вы хулиган!"
+BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 
 parking_spots_obj = [] # Список всех праковочных мест
 
@@ -88,7 +92,7 @@ async def process_help_command(message: Message):
     await message.answer(HELP_MESSAGE)
 
 
-# Этот хэндлер будет срабатывать на просьбу забронировать место и удалять клавиатуру
+# Этот хэндлер будет срабатывать на просьбу забронировать место
 @dp.message(F.text == TEXT_BUTTON_1)
 async def process_answer(message: Message):
     available_options = get_booking_options()
@@ -151,3 +155,37 @@ def run_bot(parking_spots):
 
     print("Запускаю бота...")
     dp.run_polling(bot)
+
+
+# Обработчик запроса на выгрузку отчёта по занятым местам
+@dp.message(F.text == TEXT_BUTTON_2)
+async def process_answer(message: Message):
+    requester_username = message.from_user.username
+    is_allowed = is_user_admin(requester_username)
+
+    if not is_allowed:
+        print("Не позволено")
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=ACCESS_IS_NOT_ALLOWED_MESSAGE
+        )
+        return
+    print("Позволено")
+    # Вычисление даты две недели назад
+    two_weeks_ago = datetime.now() - timedelta(weeks=2)
+    # Выполнение запроса на выборку
+    reservations = Reservation.select().where(Reservation.booking_date >= two_weeks_ago)
+    report = ""
+
+    # Вывод результатов
+    for reservation in reservations:
+        report += f"Дата бронирования: {reservation.booking_date}. "
+        report += f"Место: {Reservation.parking_spot_id.name}. "
+        report += f"Пользователь: {reservation.username}.\n\n"
+
+    print(report)
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=f"{BEFORE_SEND_REPORT_MESSAGE}{report}"
+    )
