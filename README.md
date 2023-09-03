@@ -22,11 +22,11 @@ python3 -m venv env
 ```
 2. Склонировать репозиторий
 ```bash
-git clone https://github.com/KrivoSoft/parking_telegram_bot.git
+git clone https://github.com/KrivoSoft/Anna.git
 ```
 3. Установить необходимые библиотеки: 
 ```bash
-cd parking_telegram_bot
+cd Anna
 pip install -r requirements.txt 
 ```
 4. Создайте конфигурационный файл settings.yml:
