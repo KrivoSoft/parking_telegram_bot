@@ -1,7 +1,7 @@
 from peewee import *
 import os
 import yaml
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:

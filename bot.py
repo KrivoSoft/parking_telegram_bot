@@ -1,17 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Any
 import yaml
 from aiogram import Bot, Dispatcher, F
-from aiogram.dispatcher import router
 from aiogram.filters import Command
-from aiogram.handlers import InlineQueryHandler
-from aiogram.types import ReplyKeyboardRemove, \
-    ReplyKeyboardMarkup, KeyboardButton, \
-    InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResult, InlineQueryResultsButton, InlineQueryResultArticle, \
-    InputTextMessageContent, CallbackQuery
-from aiogram.types import Message, InlineQuery
-from entities import get_booking_options, is_spot_free, get_parking_spot_by_name, create_reservation, is_user_admin, \
-    Reservation
+from aiogram.types import (
+    ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
+from aiogram.types import Message
+from entities import (
+    get_booking_options, is_spot_free, get_parking_spot_by_name,
+    create_reservation, is_user_admin, Reservation)
 
 # Текст, который будет выводить бот в сообщениях
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
@@ -23,7 +20,7 @@ DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Ва
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Обмануть меня захотели? Ваш логин я записала и передам руководству какой Вы хулиган!"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 
-parking_spots_obj = [] # Список всех праковочных мест
+parking_spots_obj = []  # Список всех праковочных мест
 
 
 def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMarkup:
@@ -31,7 +28,6 @@ def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMa
 
     # Создаём кнопку для каждой доступной даты
     for key, value in available_options.items():
-
         one_button: InlineKeyboardButton = InlineKeyboardButton(
             text=key.strftime("%d/%m/%Y"),
             callback_data=f'book {key} {value[0]}')
