@@ -7,7 +7,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.types import Message
 from entities import (
-    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username,
+    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
     create_reservation, is_user_admin, Reservation, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
@@ -18,7 +18,12 @@ HELP_MESSAGE = "Напиши мне что-нибудь"
 ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
 DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить...'
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Обмануть меня захотели? Ваш логин я записала и передам руководству какой Вы хулиган!"
+UNKNOWN_USER_MESSAGE = "Простите, а Вы кто? 🤨"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
+
+ROLE_ADMINISTRATOR = "ADMINISTRATOR"
+ROLE_AUDITOR = "AUDITOR"
+ROLE_CLIENT = "CLIENT"
 
 all_roles_obj = []
 all_users_obj = []
@@ -50,6 +55,25 @@ bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
 
+def is_message_from_unknown_user(message: Message) -> bool:
+    requester_username = message.from_user.username
+
+    print(all_users_obj)
+    requester_user = get_user_by_username(requester_username, all_users_obj)
+
+    print(requester_user)
+
+    if requester_user is None:
+        requester_first_name = message.from_user.first_name
+        requester_last_name = message.from_user.last_name
+        requester_user = get_user_by_name(requester_first_name, requester_last_name, all_users_obj)
+
+        if requester_user is None:
+            return True
+
+    return False
+
+
 def create_main_menu_keyboard(is_show_full_version: bool) -> ReplyKeyboardMarkup:
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
     button_1: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
@@ -72,7 +96,13 @@ def create_main_menu_keyboard(is_show_full_version: bool) -> ReplyKeyboardMarkup
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message):
     """ Этот хэндлер обрабатывает команду "/start" """
-    requester_username = message.from_user.username
+
+    if is_message_from_unknown_user(message):
+        await message.answer(
+            UNKNOWN_USER_MESSAGE
+        )
+    print("Иду дальше")
+
     requester_is_admin = False
 
     if is_user_admin(requester_username):

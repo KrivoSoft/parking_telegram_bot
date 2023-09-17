@@ -22,19 +22,25 @@ all_roles_names = [
 all_users = CONSTANTS["USERS"]
 
 if os.path.isfile(db_name):
-    data = {}
+    data = {
+        "all_roles_obj": [],
+        "all_users_obj": [],
+        "all_spots_obj": []
+    }
 
     query = Role.select()
     for obj in query:
-        data["all_roles_obj"] = obj
+        data["all_roles_obj"].append(obj)
 
     query = User.select()
     for obj in query:
-        data["all_users_obj"] = obj
+        data["all_users_obj"].append(obj)
 
     query = ParkingSpot.select()
     for obj in query:
-        data["all_spots_obj"] = obj
+        data["all_spots_obj"].append(obj)
+
+    print(data)
 else:
     create_tables()
 

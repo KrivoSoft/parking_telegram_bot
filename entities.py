@@ -40,6 +40,9 @@ class Role(BaseModel):
     class Meta:
         table_name = 'roles'
 
+    def __repr__(self):
+        return self.name
+
 
 class User(BaseModel):
     username = CharField(null=True)
@@ -94,9 +97,19 @@ def create_reservation(spot_id: int, date: str, user: User) -> None:
 
 
 def get_user_by_username(username: str, users_list_obj: list[User]) -> Optional[User]:
+    """ Функция, возвращающая нужного пользователя по username из списка всех пользователей """
     for user in users_list_obj:
         if user.username == username:
             return user
+    return None
+
+
+def get_user_by_name(first_name: str, last_name: str, users_list_obj: list[User]) -> Optional[User]:
+    """ Функция, возвращающая нужного пользователя по имени и фамилии из списка всех пользователей """
+    for user in users_list_obj:
+        if user.first_name == first_name:
+            if user.last_name == last_name:
+                return user
     return None
 
 
