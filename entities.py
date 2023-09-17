@@ -47,11 +47,19 @@ class Reservation(BaseModel):
         return self.booking_date
 
 
-class Administrator(BaseModel):
-    username = CharField()
+class Role(BaseModel):
+    name = CharField()
 
     class Meta:
-        table_name = 'administrators'
+        table_name = 'roles'
+
+
+class User(BaseModel):
+    username = CharField()
+    role_id = ForeignKeyField(Role, backref="role_id")
+
+    class Meta:
+        table_name = 'users'
 
     def __repr__(self):
         return self.username
@@ -60,7 +68,7 @@ class Administrator(BaseModel):
 def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
-    db.create_tables([ParkingSpot, Reservation, Administrator])
+    db.create_tables([ParkingSpot, Reservation, User, Role])
 
 
 def create_spots(spots_list: list) -> list:
@@ -138,11 +146,23 @@ def get_booking_options() -> dict:
     return available_dates_for_book
 
 
-def add_administrator(administrator_usernames: list) -> list:
+def add_roles(roles_list: list) -> list:
+    """ Запись в БД информации по аудиторам"""
+    auditors_obj_array = []
+
+    for one in roles_list:
+        role_obj = Role(name=one)
+        auditors_obj_array.append(role_obj)
+        role_obj.save()
+
+    return auditors_obj_array
+
+
+def add_users(administrator_usernames: list, role: Role) -> list:
     administrators_list_obj = []
 
     for username in administrator_usernames:
-        admin_obj = Administrator.create(username=username)
+        admin_obj = User.create(username=username, role_id=role.id)
         administrators_list_obj.append(admin_obj)
         admin_obj.save()
 
@@ -150,8 +170,8 @@ def add_administrator(administrator_usernames: list) -> list:
 
 
 def is_user_admin(username: str) -> bool:
-    admin = Administrator.select().where(
-        Administrator.username == username
+    admin = User.select().where(
+        User.username == username
     )
     if admin:
         return True
