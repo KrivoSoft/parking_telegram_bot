@@ -32,9 +32,29 @@ class ParkingSpot(BaseModel):
         return self.name
 
 
+class Role(BaseModel):
+    name = CharField()
+
+    class Meta:
+        table_name = 'roles'
+
+
+class User(BaseModel):
+    username = CharField(null=True)
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
+    role_id = ForeignKeyField(Role, backref="role_id")
+
+    class Meta:
+        table_name = 'users'
+
+    def __repr__(self):
+        return self.username
+
+
 class Reservation(BaseModel):
     booking_date = DateField()
-    username = CharField()
+    username = ForeignKeyField(User, backref="username_id")
     parking_spot_id = ForeignKeyField(ParkingSpot, backref='parking_spot_id')
 
     class Meta:
@@ -47,31 +67,13 @@ class Reservation(BaseModel):
         return self.booking_date
 
 
-class Role(BaseModel):
-    name = CharField()
-
-    class Meta:
-        table_name = 'roles'
-
-
-class User(BaseModel):
-    username = CharField()
-    role_id = ForeignKeyField(Role, backref="role_id")
-
-    class Meta:
-        table_name = 'users'
-
-    def __repr__(self):
-        return self.username
-
-
 def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
     db.create_tables([ParkingSpot, Reservation, User, Role])
 
 
-def create_spots(spots_list: list) -> list:
+def load_spots(spots_list: list) -> list:
     """ Запись в БД информации из конфига по доступным парковочным местам"""
     spots_obj_array = []
 
@@ -146,7 +148,7 @@ def get_booking_options() -> dict:
     return available_dates_for_book
 
 
-def add_roles(roles_list: list) -> list:
+def load_roles(roles_list: list) -> list:
     """ Запись в БД информации по аудиторам"""
     auditors_obj_array = []
 
@@ -158,15 +160,21 @@ def add_roles(roles_list: list) -> list:
     return auditors_obj_array
 
 
-def add_users(administrator_usernames: list, role: Role) -> list:
-    administrators_list_obj = []
+def load_users(users: list[dict], roles: list[Role]) -> list:
+    users_list_obj = []
 
-    for username in administrator_usernames:
-        admin_obj = User.create(username=username, role_id=role.id)
-        administrators_list_obj.append(admin_obj)
-        admin_obj.save()
+    for user_data in users:
+        for role in roles:
+            if user_data["role"] == role.name:
+                user_obj = User.create(
+                    username=user_data["username"],
+                    first_name=user_data["first_name"],
+                    last_name=user_data["last_name"],
+                    role_id=role.id)
+                users_list_obj.append(user_obj)
+                user_obj.save()
 
-    return administrators_list_obj
+    return users_list_obj
 
 
 def is_user_admin(username: str) -> bool:
