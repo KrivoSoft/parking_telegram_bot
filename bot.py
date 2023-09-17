@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from typing import Union
+
 import yaml
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
@@ -57,15 +59,14 @@ bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
 
-def is_message_from_unknown_user(message: Message) -> bool:
+def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool:
     requester_username = message.from_user.username
-    requester_user = get_user_by_username(requester_username, all_users_obj)
+    requester_user = get_user_by_username(requester_username)
 
     if requester_user is None:
         requester_first_name = message.from_user.first_name
         requester_last_name = message.from_user.last_name
-        requester_user = get_user_by_name(requester_first_name, requester_last_name, all_users_obj)
-
+        requester_user = get_user_by_name(requester_first_name, requester_last_name)
         if requester_user is None:
             return True
 
@@ -80,7 +81,7 @@ def create_start_menu_keyboard(
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
     book_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
     report_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
-    add_user_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
+    add_user_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_3)
 
     buttons_list = []
 
@@ -156,12 +157,22 @@ async def process_answer(message: Message):
 @dp.callback_query(lambda c: c.data.startswith('book'))
 async def process_button_callback(callback_query: CallbackQuery):
     """ Обработчик события нажатия на inline-кнопку с предлагаемой датой брони """
+    if is_message_from_unknown_user(callback_query):
+        await callback_query.reply(
+            UNKNOWN_USER_MESSAGE_1
+        )
+        await callback_query.answer(
+            UNKNOWN_USER_MESSAGE_2
+        )
+        return 0
+
     # Получаем данные из нажатой кнопки
     button_data = callback_query.data
 
     query_data = button_data.split()
     booking_date = query_data[1]
     booking_spot = query_data[2]
+
     requester_username = callback_query.from_user.username
 
     if requester_username == "":
@@ -174,13 +185,19 @@ async def process_button_callback(callback_query: CallbackQuery):
     #
     # Если у пользователя нет username, будет ошибка
     #
-    requester_user = get_user_by_username(requester_username, all_users_obj)
-    if type(requester_user) is str:
-        # Отправляем ответ пользователю
-        await bot.send_message(
-            chat_id=callback_query.message.chat.id,
-            text=f'Проищошла какая-то ошибка Т_Т'
-        )
+    requester_user = get_user_by_username(requester_username)
+    if requester_user is None:
+        requester_first_name = callback_query.from_user.first_name
+        requester_last_name = callback_query.from_user.last_name
+        requester_user = get_user_by_name(requester_first_name, requester_last_name)
+        if requester_user is None:
+            print(requester_username)
+            print(requester_first_name)
+            print(requester_last_name)
+            await bot.send_message(
+                chat_id=callback_query.message.chat.id,
+                text="Произошла какая-то ошибка. Мне так жаль 😢")
+            return 0
 
     # Проверяем, что слот свободен.
     # Если это так, то создаём запись в БД

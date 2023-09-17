@@ -92,7 +92,7 @@ def load_spots(spots_list: list) -> list:
 
 def create_reservation(spot_id: int, date: str, user: User) -> None:
     """ Создание новой записи в БД о бронировании парковочного места """
-    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, user_id=user)
+    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, user_id=user.id)
     new_reservation.save()
 
 
