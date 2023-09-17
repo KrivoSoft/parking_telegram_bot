@@ -71,7 +71,7 @@ def create_main_menu_keyboard(is_show_full_version: bool) -> ReplyKeyboardMarkup
 
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message):
-    """ Этот хэндлер срабатывает на команду "/start" """
+    """ Этот хэндлер обрабатывает команду "/start" """
     requester_username = message.from_user.username
     requester_is_admin = False
 
