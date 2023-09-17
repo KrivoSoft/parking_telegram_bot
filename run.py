@@ -7,6 +7,7 @@ with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 
 parking_spots = CONSTANTS['PARKING_SPOTS']
+db_name = CONSTANTS['DB_NAME']
 
 """ Подгружаем названия ролей """
 administrator_role_name = "ADMINISTRATOR"
@@ -20,17 +21,31 @@ all_roles_names = [
 
 all_users = CONSTANTS["USERS"]
 
-if is_db_created():
-    parking_spots_obj = []
+if os.path.isfile(db_name):
+    data = {}
+
+    query = Role.select()
+    for obj in query:
+        data["all_roles_obj"] = obj
+
+    query = User.select()
+    for obj in query:
+        data["all_users_obj"] = obj
+
     query = ParkingSpot.select()
     for obj in query:
-        parking_spots_obj.append(obj)
+        data["all_spots_obj"] = obj
 else:
     create_tables()
 
     # Добавляем записи в БД:
     all_roles_obj = load_roles(all_roles_names)
     all_users_obj = load_users(all_users, all_roles_obj)
-    parking_spots_obj = load_spots(parking_spots)
+    all_spots_obj = load_spots(parking_spots)
+    data = {
+        "all_roles_obj": all_roles_obj,
+        "all_users_obj": all_users_obj,
+        "all_spots_obj": all_spots_obj
+    }
 
-bot.run_bot(parking_spots_obj)
+bot.run_bot(data)

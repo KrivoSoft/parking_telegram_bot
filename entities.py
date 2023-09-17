@@ -1,3 +1,5 @@
+from typing import Optional
+
 from peewee import *
 import os
 import yaml
@@ -54,7 +56,7 @@ class User(BaseModel):
 
 class Reservation(BaseModel):
     booking_date = DateField()
-    username = ForeignKeyField(User, backref="username_id")
+    user_id = ForeignKeyField(User, backref="username_id")
     parking_spot_id = ForeignKeyField(ParkingSpot, backref='parking_spot_id')
 
     class Meta:
@@ -85,18 +87,17 @@ def load_spots(spots_list: list) -> list:
     return spots_obj_array
 
 
-def create_reservation(spot_id: int, date: str, username: str) -> None:
+def create_reservation(spot_id: int, date: str, user: User) -> None:
     """ Создание новой записи в БД о бронировании парковочного места """
-    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, username=username)
+    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, user_id=user)
     new_reservation.save()
 
 
-def is_db_created() -> bool:
-    """ Проверка есть ли база данных sqlite в текущем каталоге """
-    if os.path.isfile(db_name):
-        return True
-    else:
-        return False
+def get_user_by_username(username: str, users_list_obj: list[User]) -> Optional[User]:
+    for user in users_list_obj:
+        if user.username == username:
+            return user
+    return None
 
 
 def is_spot_free(checking_spot: ParkingSpot, checking_date) -> bool:

@@ -7,10 +7,10 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.types import Message
 from entities import (
-    get_booking_options, is_spot_free, get_parking_spot_by_name,
+    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username,
     create_reservation, is_user_admin, Reservation, ParkingSpot)
 
-# Текст, который будет выводить бот в сообщениях
+""" Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
 TEXT_BUTTON_2 = "Отправь отчёт по брони"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
@@ -20,7 +20,9 @@ DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Ва
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Обмануть меня захотели? Ваш логин я записала и передам руководству какой Вы хулиган!"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 
-parking_spots_obj = []  # Список всех праковочных мест
+all_roles_obj = []
+all_users_obj = []
+all_spots_obj = []
 
 
 def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMarkup:
@@ -67,9 +69,9 @@ def create_main_menu_keyboard(is_show_full_version: bool) -> ReplyKeyboardMarkup
     return keyboard
 
 
-# Этот хэндлер будет срабатывать на команду "/start"
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message):
+    """ Этот хэндлер срабатывает на команду "/start" """
     requester_username = message.from_user.username
     requester_is_admin = False
 
@@ -110,6 +112,7 @@ async def process_answer(message: Message):
 
 @dp.callback_query(lambda c: c.data.startswith('book'))
 async def process_button_callback(callback_query: CallbackQuery):
+    """ Обработчик события нажатия на inline-кнопку с предлагаемой датой брони """
     # Получаем данные из нажатой кнопки
     button_data = callback_query.data
 
@@ -119,11 +122,22 @@ async def process_button_callback(callback_query: CallbackQuery):
     requester_username = callback_query.from_user.username
 
     if requester_username == "":
-        requester_username = callback_query.from_user.full_name
+        requester_username = callback_query.from_user.first_name
 
-    booking_spot_obj = get_parking_spot_by_name(booking_spot, parking_spots_obj)
+    booking_spot_obj = get_parking_spot_by_name(booking_spot, all_spots_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
+
+    #
+    # Если у пользователя нет username, будет ошибка
+    #
+    requester_user = get_user_by_username(requester_username, all_users_obj)
+    if type(requester_user) is str:
+        # Отправляем ответ пользователю
+        await bot.send_message(
+            chat_id=callback_query.message.chat.id,
+            text=f'Проищошла какая-то ошибка Т_Т'
+        )
 
     # Проверяем, что слот свободен.
     # Если это так, то создаём запись в БД
@@ -131,7 +145,7 @@ async def process_button_callback(callback_query: CallbackQuery):
         create_reservation(
             spot_id=booking_spot_obj.id,
             date=booking_date,
-            username=requester_username
+            user=requester_user
         )
 
     # Отправляем ответ пользователю
@@ -145,9 +159,13 @@ if __name__ == '__main__':
     dp.run_polling(bot)
 
 
-def run_bot(parking_spots):
-    global parking_spots_obj
-    parking_spots_obj = parking_spots
+def run_bot(data: dict):
+    global all_users_obj
+    global all_roles_obj
+    global all_spots_obj
+    all_users_obj = data["all_users_obj"]
+    all_roles_obj = data["all_roles_obj"]
+    all_spots_obj = data["all_spots_obj"]
 
     print("Запускаю бота...")
     dp.run_polling(bot)
