@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Union, Optional
 
 import yaml
 from aiogram import Bot, Dispatcher, F
@@ -10,7 +10,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
-    create_reservation, Reservation, ParkingSpot)
+    create_reservation, Reservation, User, Role)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
@@ -71,6 +71,13 @@ def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool
             return True
 
     return False
+
+
+def get_user_role(first_name, last_name, username) -> Optional[Role]:
+    user = get_user_by_username(username)
+    if user is None:
+        user = get_user_by_name(first_name, last_name)
+    return user
 
 
 def create_start_menu_keyboard(
@@ -166,13 +173,11 @@ async def process_button_callback(callback_query: CallbackQuery):
         )
         return 0
 
-    # Получаем данные из нажатой кнопки
+    """ Получаем данные из нажатой кнопки """
     button_data = callback_query.data
-
     query_data = button_data.split()
-    booking_date = query_data[1]
-    booking_spot = query_data[2]
-
+    booking_date = query_data[1] # <- Выбранная дата бронирования
+    booking_spot = query_data[2] # <- Выбранное парковочное место
     requester_username = callback_query.from_user.username
 
     if requester_username == "":
@@ -182,9 +187,6 @@ async def process_button_callback(callback_query: CallbackQuery):
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
 
-    #
-    # Если у пользователя нет username, будет ошибка
-    #
     requester_user = get_user_by_username(requester_username)
     if requester_user is None:
         requester_first_name = callback_query.from_user.first_name
@@ -196,8 +198,7 @@ async def process_button_callback(callback_query: CallbackQuery):
                 text="Произошла какая-то ошибка. Мне так жаль 😢")
             return 0
 
-    # Проверяем, что слот свободен.
-    # Если это так, то создаём запись в БД
+    """ Проверяем, что слот свободен. Если это так, то создаём запись в БД """
     if is_spot_free(booking_spot_obj, booking_date):
         create_reservation(
             spot_id=booking_spot_obj.id,
@@ -208,7 +209,7 @@ async def process_button_callback(callback_query: CallbackQuery):
     """ Отправляем ответ пользователю """
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
-        text=f'Хорошо) \nЗабронировала Вам место "{booking_spot}" на {booking_date}'
+        text=f'Хорошо 😊 \nЗабронировала Вам место "{booking_spot}" на {booking_date}'
     )
 
     """ Удаляем кнопки у предыдущего сообщения с вариантами бронирования """
