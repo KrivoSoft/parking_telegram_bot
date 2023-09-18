@@ -10,7 +10,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
-    create_reservation, Reservation, User, Role)
+    create_reservation, Reservation, User, Role, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
@@ -34,14 +34,17 @@ all_users_obj = []
 all_spots_obj = []
 
 
-def get_inline_keyboard_for_booking(available_options: dict) -> InlineKeyboardMarkup:
+def get_inline_keyboard_for_booking(
+        available_spots: list[ParkingSpot],
+        available_date: datetime.date) -> InlineKeyboardMarkup:
     buttons_list = []
 
     # Создаём кнопку для каждой доступной даты
-    for key, value in available_options.items():
+    for one_spot in available_spots:
+        available_date_str = available_date.strftime("%Y-%m-%d")
         one_button: InlineKeyboardButton = InlineKeyboardButton(
-            text=key.strftime("%d/%m/%Y"),
-            callback_data=f'book {key} {value[0]}')
+            text=one_spot.name,
+            callback_data=f'book {one_spot.name} {available_date_str}')
         buttons_list.append(one_button)
 
     # Создаем объект инлайн-клавиатуры
@@ -145,10 +148,12 @@ async def process_answer(message: Message):
         )
         return 0
 
-    available_options = get_booking_options()
+    # available_options = get_booking_options()
+    available_spots, available_date = get_booking_options()
+    print(available_spots)
 
-    if len(available_options) > 0:
-        inline_keyboard = get_inline_keyboard_for_booking(available_options)
+    if len(available_spots) > 0:
+        inline_keyboard = get_inline_keyboard_for_booking(available_spots, available_date)
 
         await message.reply(
             text=DATE_REQUEST_MESSAGE,
@@ -176,14 +181,18 @@ async def process_button_callback(callback_query: CallbackQuery):
     """ Получаем данные из нажатой кнопки """
     button_data = callback_query.data
     query_data = button_data.split()
-    booking_date = query_data[1] # <- Выбранная дата бронирования
-    booking_spot = query_data[2] # <- Выбранное парковочное место
+    booking_spot = query_data[1]  # <- Выбранное парковочное место
+    booking_date = query_data[2] # <- Выбранная дата бронирования
     requester_username = callback_query.from_user.username
+
+    print("query_data: ", query_data)
 
     if requester_username == "":
         requester_username = callback_query.from_user.first_name
 
-    booking_spot_obj = get_parking_spot_by_name(booking_spot, all_spots_obj)
+    all_spots = ParkingSpot.select()
+    booking_spot_obj = get_parking_spot_by_name(booking_spot, all_spots)
+    print("booking_spot_obj: ", booking_spot_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
 
@@ -198,7 +207,7 @@ async def process_button_callback(callback_query: CallbackQuery):
                 text="Произошла какая-то ошибка. Мне так жаль 😢")
             return 0
 
-    """ Проверяем, что слот свободен. Если это так, то создаём запись в БД """
+    """ Проверяем, что слот свободен. Если да, то создаём запись в БД """
     if is_spot_free(booking_spot_obj, booking_date):
         create_reservation(
             spot_id=booking_spot_obj.id,
@@ -209,7 +218,8 @@ async def process_button_callback(callback_query: CallbackQuery):
     """ Отправляем ответ пользователю """
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
-        text=f'Хорошо 😊 \nЗабронировала Вам место "{booking_spot}" на {booking_date}'
+        text=f'Хорошо 😊 \nЗабронировала Вам место "{booking_spot}" на {booking_date}',
+        reply_markup=ReplyKeyboardRemove()
     )
 
     """ Удаляем кнопки у предыдущего сообщения с вариантами бронирования """

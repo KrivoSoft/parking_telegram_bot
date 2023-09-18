@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Optional, Tuple, List, Any
 
 from peewee import *
-import os
 import yaml
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
+import os
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
@@ -12,6 +12,8 @@ with open('settings.yml', 'r') as file:
 reservation_period_days = CONSTANTS['RESERVATION_PERIOD_DAYS']
 db_name = CONSTANTS['DB_NAME']
 db = SqliteDatabase(db_name)
+
+TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
 
 """ Сущности, описывающие хранимые в БД записи """
 
@@ -119,17 +121,19 @@ def get_user_by_name(first_name: str, last_name: str) -> Optional[User]:
 
 def is_spot_free(checking_spot: ParkingSpot, checking_date) -> bool:
     """ Проверка свободно ли парковочное место на определённую дату """
+
     check_query = Reservation.select().where(
         Reservation.booking_date == checking_date,
         Reservation.parking_spot_id == checking_spot.id
     )
+
     if len(check_query) == 0:
         return True
     else:
         return False
 
 
-def get_parking_spot_by_name(spot_name: str, all_spots: list) -> ParkingSpot or None:
+def get_parking_spot_by_name(spot_name: str, all_spots: list[ParkingSpot]) -> Optional[ParkingSpot]:
     check_query = ParkingSpot.select().where(
         ParkingSpot.name == spot_name
     )
@@ -141,29 +145,30 @@ def get_parking_spot_by_name(spot_name: str, all_spots: list) -> ParkingSpot or 
                 return one_spot
 
 
-def get_booking_options() -> dict:
-    """ Получаем доступные для бронирования варианты """
+def get_booking_options() -> tuple[list[ParkingSpot], date]:
+    """ Функция, получающая доступные для бронирования варианты """
+
     current_date = date.today()
+    current_time = datetime.now().time()
 
-    # Получаем даты, начиная с завтрашнего дня, на которые можно бронировать парковочные места
-    parking_reservation_date_range = []
-    for i in range(1, reservation_period_days + 1):
-        one_date = current_date + timedelta(days=i)
-        parking_reservation_date_range.append(one_date)
+    if current_time.hour >= TODAY_DEADLINE_CLOCK:
+        date_for_book = current_date + timedelta(days=1)
+    else:
+        date_for_book = current_date
 
-    available_dates_for_book = {}
+    available_spots_for_book = []
     all_spots = ParkingSpot.select()
 
-    for one_date in parking_reservation_date_range:
-        available_dates_for_book[one_date] = []
-        for one_spot in all_spots:
-            if is_spot_free(one_spot, one_date):
-                available_dates_for_book[one_date].append(one_spot.name)
+    print("all spots: ", all_spots)
+    for one_spot in all_spots:
+        print("one spot: ", one_spot)
+        if is_spot_free(one_spot, date_for_book):
+            print("free spot: ", one_spot)
+            available_spots_for_book.append(one_spot)
+        else:
+            print("busy spot: ", one_spot)
 
-    # Удаляем из словаря все даты, для которых нет свободных мест
-    available_dates_for_book = {key: value for key, value in available_dates_for_book.items() if value}
-
-    return available_dates_for_book
+    return available_spots_for_book, date_for_book
 
 
 def load_roles(roles_list: list) -> list:
