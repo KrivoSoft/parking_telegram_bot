@@ -191,9 +191,6 @@ async def process_button_callback(callback_query: CallbackQuery):
         requester_last_name = callback_query.from_user.last_name
         requester_user = get_user_by_name(requester_first_name, requester_last_name)
         if requester_user is None:
-            print(requester_username)
-            print(requester_first_name)
-            print(requester_last_name)
             await bot.send_message(
                 chat_id=callback_query.message.chat.id,
                 text="Произошла какая-то ошибка. Мне так жаль 😢")
@@ -211,7 +208,7 @@ async def process_button_callback(callback_query: CallbackQuery):
     # Отправляем ответ пользователю
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
-        text=f'Хорошо)\nЗабронировала Вам место "{booking_spot}" на {booking_date}'
+        text=f'Хорошо) \nЗабронировала Вам место "{booking_spot}" на {booking_date}'
     )
 
 
@@ -231,9 +228,9 @@ def run_bot(data: dict):
     dp.run_polling(bot)
 
 
-# Обработчик запроса на выгрузку отчёта по занятым местам
 @dp.message(F.text == TEXT_BUTTON_2)
 async def process_answer(message: Message):
+    """ Обработчик запроса на выгрузку отчёта по занятым местам """
     requester_username = message.from_user.username
     is_allowed = is_user_admin(requester_username)
 
