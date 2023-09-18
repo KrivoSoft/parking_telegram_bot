@@ -10,7 +10,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
-    create_reservation, is_user_admin, Reservation, ParkingSpot)
+    create_reservation, Reservation, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место на парковке"
@@ -205,10 +205,20 @@ async def process_button_callback(callback_query: CallbackQuery):
             user=requester_user
         )
 
-    # Отправляем ответ пользователю
+    """ Отправляем ответ пользователю """
     await bot.send_message(
         chat_id=callback_query.message.chat.id,
         text=f'Хорошо) \nЗабронировала Вам место "{booking_spot}" на {booking_date}'
+    )
+
+    """ Удаляем кнопки у предыдущего сообщения с вариантами бронирования """
+    await callback_query.message.edit_reply_markup(
+        reply_markup=None
+    )
+
+    """ Обрабатываем полученный callback по правилам хорошего тона и чтобы кнопка не моргала постоянно """
+    await callback_query.answer(
+        text=f'Успешно!'
     )
 
 
@@ -217,6 +227,7 @@ if __name__ == '__main__':
 
 
 def run_bot(data: dict):
+    """ Функция запуска бота """
     global all_users_obj
     global all_roles_obj
     global all_spots_obj
@@ -231,15 +242,16 @@ def run_bot(data: dict):
 @dp.message(F.text == TEXT_BUTTON_2)
 async def process_answer(message: Message):
     """ Обработчик запроса на выгрузку отчёта по занятым местам """
-    requester_username = message.from_user.username
-    is_allowed = is_user_admin(requester_username)
 
-    if not is_allowed:
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text=ACCESS_IS_NOT_ALLOWED_MESSAGE
+    if is_message_from_unknown_user(message):
+        await message.reply(
+            UNKNOWN_USER_MESSAGE_1
         )
-        return
+        await message.answer(
+            UNKNOWN_USER_MESSAGE_2
+        )
+        return 0
+
     # Вычисление даты две недели назад
     two_weeks_ago = datetime.now() - timedelta(weeks=2)
     # Выполнение запроса на выборку

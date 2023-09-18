@@ -193,13 +193,3 @@ def load_users(users: list[dict], roles: list[Role]) -> list:
                 user_obj.save()
 
     return users_list_obj
-
-
-def is_user_admin(username: str) -> bool:
-    admin = User.select().where(
-        User.username == username
-    )
-    if admin:
-        return True
-    else:
-        return False
