@@ -4,6 +4,7 @@ from peewee import *
 import yaml
 from datetime import timedelta, date, datetime
 import os
+from aiogram.types import Message
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
@@ -198,3 +199,14 @@ def load_users(users: list[dict], roles: list[Role]) -> list:
                 user_obj.save()
 
     return users_list_obj
+
+
+def get_user_role(message: Message) -> str:
+    name_user = message.from_user.username
+    if (name_user is None) or (name_user == ""):
+        first_name = message.from_user.first_name
+        last_name = message.from_user.last_name
+        user = get_user_by_name(first_name, last_name)
+    else:
+        user = get_user_by_username(name_user)
+    return user.role_id.name

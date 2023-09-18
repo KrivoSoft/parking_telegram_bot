@@ -9,7 +9,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.types import Message
 from entities import (
-    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
+    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name, get_user_role,
     create_reservation, Reservation, User, Role, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
@@ -17,10 +17,10 @@ TEXT_BUTTON_1 = "Забронируй мне место на парковке"
 TEXT_BUTTON_2 = "Отправь отчёт по брони"
 TEXT_BUTTON_3 = "Добавить пользователя"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
-HELP_MESSAGE = "Напиши мне что-нибудь"
+HELP_MESSAGE = "/start - и мы начнём диалог сначала 👀\n/help - выводит данную подсказку 💁🏻‍♀️"
 ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
 DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить...'
-ACCESS_IS_NOT_ALLOWED_MESSAGE = "Обмануть меня захотели? Ваш логин я записала и передам руководству какой Вы хулиган!"
+ACCESS_IS_NOT_ALLOWED_MESSAGE = "Нет 🙅🏻‍♀️"
 UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не разговариваю 🙄"
 UNKNOWN_USER_MESSAGE_2 = "💅🏻"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
@@ -76,13 +76,6 @@ def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool
     return False
 
 
-def get_user_role(first_name, last_name, username) -> Optional[Role]:
-    user = get_user_by_username(username)
-    if user is None:
-        user = get_user_by_name(first_name, last_name)
-    return user
-
-
 def create_start_menu_keyboard(
         is_show_book_button: bool,
         is_show_report_button: bool,
@@ -124,9 +117,24 @@ async def process_start_command(message: Message):
         )
         return 0
 
+    show_book_button = False
+    show_report_button = False
+    show_add_user_button = False
+
+    """ Топорно пропишем полномочия на кнопки меню """
+    user_role = get_user_role(message)
+    if user_role == ROLE_ADMINISTRATOR:
+        show_book_button = True
+        show_report_button = True
+        show_add_user_button = True
+    elif user_role == ROLE_AUDITOR:
+        show_report_button = True
+    elif user_role == ROLE_CLIENT:
+        show_book_button = True
+
     await message.answer(
         START_MESSAGE,
-        reply_markup=create_start_menu_keyboard(True, True, True)
+        reply_markup=create_start_menu_keyboard(show_book_button, show_report_button, show_add_user_button)
     )
 
 
@@ -148,7 +156,12 @@ async def process_answer(message: Message):
         )
         return 0
 
-    # available_options = get_booking_options()
+    if get_user_role(message) == ROLE_AUDITOR:
+        await message.reply(
+            ACCESS_IS_NOT_ALLOWED_MESSAGE
+        )
+        return 0
+
     available_spots, available_date = get_booking_options()
     print(available_spots)
 
@@ -260,6 +273,12 @@ async def process_answer(message: Message):
         )
         await message.answer(
             UNKNOWN_USER_MESSAGE_2
+        )
+        return 0
+
+    if get_user_role(message) == ROLE_CLIENT:
+        await message.reply(
+            ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
         return 0
 
