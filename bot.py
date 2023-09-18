@@ -24,6 +24,7 @@ ACCESS_IS_NOT_ALLOWED_MESSAGE = "Нет 🙅🏻‍♀️"
 UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не разговариваю 🙄"
 UNKNOWN_USER_MESSAGE_2 = "💅🏻"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
+UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -64,16 +65,31 @@ dp: Dispatcher = Dispatcher()
 
 def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool:
     requester_username = message.from_user.username
+    if requester_username is None:
+        requester_username = ""
     requester_user = get_user_by_username(requester_username)
 
     if requester_user is None:
+        print("Не вижу пользователя с таким username")
+        """ Либо такого пользователя нет, либо у нашего пользователя нет username """
         requester_first_name = message.from_user.first_name
         requester_last_name = message.from_user.last_name
         requester_user = get_user_by_name(requester_first_name, requester_last_name)
         if requester_user is None:
+            print("Даже по имени не могу найти такого пользователя")
+            """ Вообще нет такого пользователя """
             return True
-
-    return False
+        if requester_user.username == message.from_user.username:
+            print("У пользователя совпадает username")
+            """ username у пользователей совпадают. Это наш пользователь. """
+            return False
+        else:
+            print("Нашла похожего, но username не совпадает")
+            print(requester_user.username)
+            print(message.from_user.username)
+            return True
+    else:
+        return False
 
 
 def create_start_menu_keyboard(
@@ -126,7 +142,6 @@ async def process_start_command(message: Message):
     if user_role == ROLE_ADMINISTRATOR:
         show_book_button = True
         show_report_button = True
-        show_add_user_button = True
     elif user_role == ROLE_AUDITOR:
         show_report_button = True
     elif user_role == ROLE_CLIENT:
@@ -138,9 +153,9 @@ async def process_start_command(message: Message):
     )
 
 
-# Этот хэндлер будет срабатывать на команду "/help"
 @dp.message(Command(commands=['help']))
 async def process_help_command(message: Message):
+    """ Этот хэндлер будет срабатывать на команду "/help" """
     await message.answer(HELP_MESSAGE)
 
 
@@ -208,6 +223,7 @@ async def process_button_callback(callback_query: CallbackQuery):
     print("booking_spot_obj: ", booking_spot_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
+        return 0
 
     requester_user = get_user_by_username(requester_username)
     if requester_user is None:
@@ -298,3 +314,9 @@ async def process_answer(message: Message):
         chat_id=message.chat.id,
         text=f"{BEFORE_SEND_REPORT_MESSAGE}{report}"
     )
+
+
+@dp.message()
+async def process_other_messages(message: Message):
+    await message.answer(text=UNKNOWN_TEXT_MESSAGE)
+    await process_help_command(message)
