@@ -25,6 +25,7 @@ UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не 
 UNKNOWN_USER_MESSAGE_2 = "💅🏻"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
+UNKNOWN_ERROR_MESSAGE = "Произошла какая-то ошибка. Мне так жаль 😢"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -40,7 +41,7 @@ def get_inline_keyboard_for_booking(
         available_date: datetime.date) -> InlineKeyboardMarkup:
     buttons_list = []
 
-    # Создаём кнопку для каждой доступной даты
+    """ Создаём кнопку для каждой доступной даты """
     for one_spot in available_spots:
         available_date_str = available_date.strftime("%Y-%m-%d")
         one_button: InlineKeyboardButton = InlineKeyboardButton(
@@ -48,13 +49,13 @@ def get_inline_keyboard_for_booking(
             callback_data=f'book {one_spot.name} {available_date_str}')
         buttons_list.append(one_button)
 
-    # Создаем объект инлайн-клавиатуры
+    """ Создаем объект инлайн-клавиатуры """
     keyboard: InlineKeyboardMarkup = InlineKeyboardMarkup(
         inline_keyboard=[buttons_list])
     return keyboard
 
 
-# Получаем данные из файла настроек
+""" Получаем данные из файла настроек """
 with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 API_TOKEN = CONSTANTS['API_TOKEN']
@@ -76,17 +77,13 @@ def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool
         requester_last_name = message.from_user.last_name
         requester_user = get_user_by_name(requester_first_name, requester_last_name)
         if requester_user is None:
-            print("Даже по имени не могу найти такого пользователя")
             """ Вообще нет такого пользователя """
             return True
         if requester_user.username == message.from_user.username:
-            print("У пользователя совпадает username")
             """ username у пользователей совпадают. Это наш пользователь. """
             return False
         else:
-            print("Нашла похожего, но username не совпадает")
-            print(requester_user.username)
-            print(message.from_user.username)
+            """ username отличаются """
             return True
     else:
         return False
@@ -233,7 +230,7 @@ async def process_button_callback(callback_query: CallbackQuery):
         if requester_user is None:
             await bot.send_message(
                 chat_id=callback_query.message.chat.id,
-                text="Произошла какая-то ошибка. Мне так жаль 😢")
+                text=UNKNOWN_ERROR_MESSAGE)
             return 0
 
     """ Проверяем, что слот свободен. Если да, то создаём запись в БД """
@@ -298,13 +295,13 @@ async def process_answer(message: Message):
         )
         return 0
 
-    # Вычисление даты две недели назад
+    """ Вычисление даты две недели назад """
     two_weeks_ago = datetime.now() - timedelta(weeks=2)
-    # Выполнение запроса на выборку
+    """ Выполнение запроса на выборку """
     reservations = Reservation.select().where(Reservation.booking_date >= two_weeks_ago)
     report = ""
 
-    # Вывод результатов
+    """ Вывод результатов """
     for reservation in reservations:
         report += f"Дата бронирования: {reservation.booking_date}. "
         report += f"Место: {reservation.parking_spot_id.name}. "
@@ -318,5 +315,6 @@ async def process_answer(message: Message):
 
 @dp.message()
 async def process_other_messages(message: Message):
+    """ Обработчик остальных сообщений. Выводит сообщение и вызывает обработчик /help """
     await message.answer(text=UNKNOWN_TEXT_MESSAGE)
     await process_help_command(message)
