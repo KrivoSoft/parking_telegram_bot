@@ -273,7 +273,7 @@ async def process_answer(message: Message):
     for reservation in reservations:
         report += f"Дата бронирования: {reservation.booking_date}. "
         report += f"Место: {reservation.parking_spot_id.name}. "
-        report += f"Пользователь: {reservation.username}.\n\n"
+        report += f"Пользователь: {reservation.user_id.}.\n\n"
 
     await bot.send_message(
         chat_id=message.chat.id,

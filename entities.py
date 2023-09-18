@@ -56,7 +56,7 @@ class User(BaseModel):
         table_name = 'users'
 
     def __repr__(self):
-        return self.username
+        return f"User: {self.username} {self.last_name} {self.first_name}"
 
 
 class Reservation(BaseModel):
