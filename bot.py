@@ -18,7 +18,7 @@ TEXT_BUTTON_2 = "Отправь отчёт по брони"
 TEXT_BUTTON_3 = "Добавить пользователя"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "/start - и мы начнём диалог сначала 👀\n/help - выводит данную подсказку 💁🏻‍♀️"
-ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
+ALL_SPOT_ARE_BUSY_MESSAGE = "к сожалению, все места заняты 😢"
 DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить'
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Нет 🙅🏻‍♀️"
 UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не разговариваю 🙄"
@@ -227,7 +227,7 @@ async def process_answer(message: Message):
         )
     else:
         await message.reply(
-            text=ALL_SPOT_ARE_BUSY_MESSAGE,
+            text=f"Такс ...\nНа {checking_date}, {ALL_SPOT_ARE_BUSY_MESSAGE}",
             reply_markup=ReplyKeyboardRemove()
         )
 
@@ -341,14 +341,15 @@ async def process_answer(message: Message):
     """ Выполнение запроса на выборку """
     reservations = Reservation.select().where(Reservation.booking_date >= two_weeks_ago)
     report = ""
-
     """ Вывод результатов """
     for reservation in reservations:
+        user_name = reservation.user_id.username
+        if (user_name == "") or (user_name is None):
+            user_name = " ".join([reservation.user_id.first_name, reservation.user_id.last_name])
         report += f"Дата бронирования: {reservation.booking_date}. "
         report += f"Место: {reservation.parking_spot_id.name}. "
-        report += f"Пользователь: {reservation.user_id.first_name}.\n\n"
+        report += f"Пользователь: {user_name}.\n\n"
 
-    print(report)
     if report == "":
         await bot.send_message(
             chat_id=message.chat.id,
@@ -358,7 +359,8 @@ async def process_answer(message: Message):
 
     await bot.send_message(
         chat_id=message.chat.id,
-        text=f"{BEFORE_SEND_REPORT_MESSAGE}{report}"
+        text=f"{BEFORE_SEND_REPORT_MESSAGE}{report}",
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
