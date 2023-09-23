@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Union, Optional
 
 import yaml
@@ -19,7 +19,7 @@ TEXT_BUTTON_3 = "Добавить пользователя"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "/start - и мы начнём диалог сначала 👀\n/help - выводит данную подсказку 💁🏻‍♀️"
 ALL_SPOT_ARE_BUSY_MESSAGE = "К сожалению, все места заняты 😢"
-DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить...'
+DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить'
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Нет 🙅🏻‍♀️"
 UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не разговариваю 🙄"
 UNKNOWN_USER_MESSAGE_2 = "💅🏻"
@@ -35,6 +35,12 @@ ROLE_CLIENT = "CLIENT"
 all_roles_obj = []
 all_users_obj = []
 all_spots_obj = []
+
+# Получаем данные из файла настроек
+with open('settings.yml', 'r') as file:
+    CONSTANTS = yaml.safe_load(file)
+
+TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
 
 
 def get_inline_keyboard_for_booking(
@@ -72,7 +78,6 @@ def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool
     requester_user = get_user_by_username(requester_username)
 
     if requester_user is None:
-        print("Не вижу пользователя с таким username")
         """ Либо такого пользователя нет, либо у нашего пользователя нет username """
         requester_first_name = message.from_user.first_name
         requester_last_name = message.from_user.last_name
@@ -168,6 +173,7 @@ async def process_answer(message: Message):
             UNKNOWN_USER_MESSAGE_2
         )
         return 0
+    print(is_message_from_unknown_user(message))
 
     if get_user_role(message) == ROLE_AUDITOR:
         await message.reply(
@@ -175,14 +181,48 @@ async def process_answer(message: Message):
         )
         return 0
 
+    requester = get_user_by_username(message.from_user.username)
+    if requester is None:
+        requester = get_user_by_name(message.from_user.first_name, message.from_user.last_name)
+        if requester is None:
+            print("Ошибка")
+            return 0
+
+    current_date = date.today()
+    current_time = datetime.now().time()
+
+    if current_time.hour >= TODAY_DEADLINE_CLOCK:
+        checking_date = current_date + timedelta(days=1)
+    else:
+        checking_date = current_date
+
+    reservations_by_user_count = Reservation.select(Reservation, User).join(User).where(
+        Reservation.user_id == requester.id,
+        Reservation.user_id.first_name == requester.first_name,
+        Reservation.booking_date == checking_date
+    ).count()
+
+    if reservations_by_user_count > 0:
+        await message.reply(
+            text=f"У Вас уже есть забронированное место:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        reserved_place = Reservation.get(
+            Reservation.booking_date == checking_date,
+            Reservation.user_id == requester.id
+        )
+        await message.answer(
+            text=f"Место: {reserved_place.parking_spot_id.name}, дата: {reserved_place.booking_date}"
+        )
+        return 0
+
     available_spots, available_date = get_booking_options()
-    print(available_spots)
 
     if len(available_spots) > 0:
         inline_keyboard = get_inline_keyboard_for_booking(available_spots, available_date)
 
         await message.reply(
-            text=DATE_REQUEST_MESSAGE,
+            text=" ".join([DATE_REQUEST_MESSAGE, "на", str(checking_date)]),
             reply_markup=inline_keyboard
         )
     else:

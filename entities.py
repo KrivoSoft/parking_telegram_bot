@@ -101,6 +101,8 @@ def create_reservation(spot_id: int, date: str, user: User) -> None:
 
 def get_user_by_username(username: str) -> Optional[User]:
     """ Функция, возвращающая нужного пользователя по username из БД> """
+    if username == "":
+        return None
     query = User.select()
 
     for user in query:
@@ -160,14 +162,9 @@ def get_booking_options() -> tuple[list[ParkingSpot], date]:
     available_spots_for_book = []
     all_spots = ParkingSpot.select()
 
-    print("all spots: ", all_spots)
     for one_spot in all_spots:
-        print("one spot: ", one_spot)
         if is_spot_free(one_spot, date_for_book):
-            print("free spot: ", one_spot)
             available_spots_for_book.append(one_spot)
-        else:
-            print("busy spot: ", one_spot)
 
     return available_spots_for_book, date_for_book
 
@@ -201,7 +198,7 @@ def load_users(users: list[dict], roles: list[Role]) -> list:
     return users_list_obj
 
 
-def get_user_role(message: Message) -> str:
+def get_user_role(message: Message) -> Optional[str]:
     name_user = message.from_user.username
     if (name_user is None) or (name_user == ""):
         first_name = message.from_user.first_name
@@ -209,4 +206,6 @@ def get_user_role(message: Message) -> str:
         user = get_user_by_name(first_name, last_name)
     else:
         user = get_user_by_username(name_user)
+    if user is None:
+        return None
     return user.role_id.name
