@@ -26,6 +26,7 @@ UNKNOWN_USER_MESSAGE_2 = "💅🏻"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
 UNKNOWN_ERROR_MESSAGE = "Произошла какая-то ошибка. Мне так жаль 😢"
+NO_RESERVATIONS_MESSAGE = "Кажется, пока никто ничего не забронировал 😒"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -306,6 +307,14 @@ async def process_answer(message: Message):
         report += f"Дата бронирования: {reservation.booking_date}. "
         report += f"Место: {reservation.parking_spot_id.name}. "
         report += f"Пользователь: {reservation.user_id.first_name}.\n\n"
+
+    print(report)
+    if report == "":
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=NO_RESERVATIONS_MESSAGE
+        )
+        return 0
 
     await bot.send_message(
         chat_id=message.chat.id,
