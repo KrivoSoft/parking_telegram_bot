@@ -26,7 +26,7 @@ git clone https://github.com/KrivoSoft/Anna.git
 ```
 3. Активировать виртуальное окружение:
 ```bash
-git clone https://github.com/KrivoSoft/Anna.git
+source env/bin/activate
 ```
 4. Установить необходимые библиотеки: 
 ```bash
