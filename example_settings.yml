@@ -7,10 +7,27 @@ RESERVATION_PERIOD_DAYS: 4
 # Имена для парковочных мест.
 # Можно придумать осмысленные значения.
 # Можно указать код/номер.
-PARKING_SPOTS: ["А01", "А02", "B04"]
+PARKING_SPOTS: ["333", "464", "501"]
 
 # Имя базы данных SQLite, где будет храниться вся информация
 DB_NAME: "parking_spots.db"
 
-# Список администраторов, которые могут выгружать отчёты по использованию парковочных мест
-ADMINISTRATORS: ["VladimirPn", "SomeName1"]
+# Пользователи, которые будут добавляться в базу при запуске бота
+USERS:
+  - username: "VladimirPn"
+    first_name: "Vladimir"
+    last_name: "Pn"
+    role: "ADMINISTRATOR"
+
+  - username: "SomeAnotherUsernameOfAdmin"
+    first_name: "Petr"
+    last_name: "Petrov"
+    role: "AUDITOR"
+
+  - username: "" # <- Если username нет, то вставить пустую строку, как в примере
+    first_name: "Nikita"
+    last_name: "Nikitin"
+    role: "CLIENT"
+
+# Время в 24-часовом формате, с которого не будет доступно бронирование парковочных мест на сегодня
+TODAY_DEADLINE_CLOCK: 7
