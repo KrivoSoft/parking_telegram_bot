@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, date
-from typing import Union, Optional
-
+from typing import Union
 import yaml
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
@@ -10,7 +9,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name, get_user_role,
-    create_reservation, Reservation, User, Role, ParkingSpot)
+    create_reservation, Reservation, User, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место"
@@ -32,10 +31,6 @@ CANCEL_SUCCESS_MESSAGE = "Хорошо, удалила. 🫴🏻"
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
 ROLE_CLIENT = "CLIENT"
-
-all_roles_obj = []
-all_users_obj = []
-all_spots_obj = []
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
@@ -327,15 +322,7 @@ if __name__ == '__main__':
     dp.run_polling(bot)
 
 
-def run_bot(data: dict):
-    """ Функция запуска бота """
-    global all_users_obj
-    global all_roles_obj
-    global all_spots_obj
-    all_users_obj = data["all_users_obj"]
-    all_roles_obj = data["all_roles_obj"]
-    all_spots_obj = data["all_spots_obj"]
-
+def run_bot():
     print("Запускаю бота...")
     dp.run_polling(bot)
 

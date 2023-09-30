@@ -3,7 +3,6 @@ from typing import Optional, Tuple, List, Any
 from peewee import *
 import yaml
 from datetime import timedelta, date, datetime
-import os
 from aiogram.types import Message
 
 # Получаем данные из файла настроек
@@ -36,6 +35,18 @@ class ParkingSpot(BaseModel):
     def get_name(self):
         return self.name
 
+    @staticmethod
+    def load_spots(spots_list: list) -> list:
+        """ Запись в БД информации из конфига по доступным парковочным местам"""
+        spots_obj_array = []
+
+        for one in spots_list:
+            spot_obj = ParkingSpot(name=one)
+            spots_obj_array.append(spot_obj)
+            spot_obj.save()
+
+        return spots_obj_array
+
 
 class Role(BaseModel):
     name = CharField()
@@ -45,6 +56,18 @@ class Role(BaseModel):
 
     def __repr__(self):
         return self.name
+
+    @staticmethod
+    def load_roles(roles_list: list) -> list:
+        """ Запись в БД информации по ролям """
+        roles_obj_array = []
+
+        for one in roles_list:
+            role_obj = Role(name=one)
+            roles_obj_array.append(role_obj)
+            role_obj.save()
+
+        return roles_obj_array
 
 
 class User(BaseModel):
@@ -58,6 +81,24 @@ class User(BaseModel):
 
     def __repr__(self):
         return f"User: {self.username} {self.last_name} {self.first_name}"
+
+    @staticmethod
+    def load_users(users: list[dict]) -> list:
+        users_list_obj = []
+        roles = Role.select()
+
+        for user_data in users:
+            for role in roles:
+                if user_data["role"] == role.name:
+                    user_obj = User.create(
+                        username=user_data["username"],
+                        first_name=user_data["first_name"],
+                        last_name=user_data["last_name"],
+                        role_id=role.id)
+                    users_list_obj.append(user_obj)
+                    user_obj.save()
+
+        return users_list_obj
 
 
 class Reservation(BaseModel):
@@ -79,18 +120,6 @@ def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
     db.create_tables([ParkingSpot, Reservation, User, Role])
-
-
-def load_spots(spots_list: list) -> list:
-    """ Запись в БД информации из конфига по доступным парковочным местам"""
-    spots_obj_array = []
-
-    for one in spots_list:
-        spot_obj = ParkingSpot(name=one)
-        spots_obj_array.append(spot_obj)
-        spot_obj.save()
-
-    return spots_obj_array
 
 
 def create_reservation(spot_id: int, date: str, user: User) -> None:
@@ -167,35 +196,6 @@ def get_booking_options() -> tuple[list[ParkingSpot], date]:
             available_spots_for_book.append(one_spot)
 
     return available_spots_for_book, date_for_book
-
-
-def load_roles(roles_list: list) -> list:
-    """ Запись в БД информации по аудиторам"""
-    auditors_obj_array = []
-
-    for one in roles_list:
-        role_obj = Role(name=one)
-        auditors_obj_array.append(role_obj)
-        role_obj.save()
-
-    return auditors_obj_array
-
-
-def load_users(users: list[dict], roles: list[Role]) -> list:
-    users_list_obj = []
-
-    for user_data in users:
-        for role in roles:
-            if user_data["role"] == role.name:
-                user_obj = User.create(
-                    username=user_data["username"],
-                    first_name=user_data["first_name"],
-                    last_name=user_data["last_name"],
-                    role_id=role.id)
-                users_list_obj.append(user_obj)
-                user_obj.save()
-
-    return users_list_obj
 
 
 def get_user_role(message: Message) -> Optional[str]:
