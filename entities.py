@@ -37,7 +37,7 @@ class ParkingSpot(BaseModel):
 
     @staticmethod
     def load_spots(spots_list: list) -> list:
-        """ Запись в БД информации из конфига по доступным парковочным местам"""
+        """ Функция загрузки парковочных мест из конфига"""
         spots_obj_array = []
 
         for one in spots_list:
@@ -84,6 +84,7 @@ class User(BaseModel):
 
     @staticmethod
     def load_users(users: list[dict]) -> list:
+        """ Функция загрузки пользователей из конфига """
         users_list_obj = []
         roles = Role.select()
 
