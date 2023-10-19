@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List, Any
+from typing import Optional
 
 from peewee import *
 import yaml
@@ -100,6 +100,16 @@ class User(BaseModel):
                     user_obj.save()
 
         return users_list_obj
+
+    @staticmethod
+    def add_user(username: str, first_name: str, last_name: str, role_id: int):
+        if username is not None:
+            User.create(
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+                role_id=Role.select().where(Role.id == role_id)
+            )
 
 
 class Reservation(BaseModel):
