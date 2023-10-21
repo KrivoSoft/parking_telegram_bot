@@ -157,6 +157,7 @@ def create_start_menu_keyboard(
 async def process_start_command(message: Message, state: FSMContext):
     """ Этот хэндлер обрабатывает команду "/start" """
 
+    """ Проверяем, что команды прислал известный пользователь """
     if is_message_from_unknown_user(message):
         await message.reply(
             UNKNOWN_USER_MESSAGE_1
@@ -166,6 +167,7 @@ async def process_start_command(message: Message, state: FSMContext):
         )
         return 0
 
+    """ Переменные, указывающие на то, какие кнопки меню будут доступны в дальнейшем """
     show_book_button = False
     show_report_button = False
     show_cancel_button = False
@@ -200,11 +202,13 @@ async def process_start_command(message: Message, state: FSMContext):
     else:
         checking_date = current_date
 
+    """ Проверяем есть ли у пользователя уже брони на текущую дату """
     reserved_spots = Reservation.select().where(
         Reservation.booking_date == checking_date,
         Reservation.user_id == requester.id
     ).count()
 
+    """ Если есть, то показываем кнопку отмены, а кнопку бронирования убираем """
     if reserved_spots > 0:
         show_cancel_button = True
         show_book_button = False
