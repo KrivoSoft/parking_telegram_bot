@@ -207,6 +207,7 @@ async def process_start_command(message: Message, state: FSMContext):
 
     if reserved_spots > 0:
         show_cancel_button = True
+        show_book_button = False
 
     await state.clear()
 
@@ -450,7 +451,7 @@ async def process_answer_free_spots(message: Message):
 
     await bot.send_message(
         chat_id=message.chat.id,
-        text=f"{BEFORE_SEND_REPORT_MESSAGE} на {available_date} доступны следующие парковочные места:\n{report}",
+        text=f"На {available_date} доступны следующие парковочные места:\n{report}",
         reply_markup=ReplyKeyboardRemove()
     )
 
