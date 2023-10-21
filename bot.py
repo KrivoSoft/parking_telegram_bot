@@ -128,20 +128,25 @@ def create_start_menu_keyboard(
 
     buttons_list = []
 
+    """ 
+    Каждый массив - один ряд кнопок.
+    Чтобы кнопка была в отдельном ряду, необходимо, 
+    чтобы каждая кнопка была в отдельном массиве 
+    """
     if is_show_book_button:
-        buttons_list.append(book_button)
+        buttons_list.append([book_button])
     if is_show_report_button:
-        buttons_list.append(report_button)
+        buttons_list.append([report_button])
     if is_show_cancel_button:
-        buttons_list.append(cancel_reservation_button)
+        buttons_list.append([cancel_reservation_button])
     if is_show_adduser_button:
-        buttons_list.append(add_user_button)
+        buttons_list.append([add_user_button])
     if is_show_free_spots_button:
-        buttons_list.append(show_free_spots)
+        buttons_list.append([show_free_spots])
 
-    # Создаем объект клавиатуры, добавляя в него кнопки
+    """ Создаем объект клавиатуры, добавляя в него кнопки """
     keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
-        keyboard=[buttons_list],
+        keyboard=buttons_list,
         resize_keyboard=True
     )
 
