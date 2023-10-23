@@ -14,9 +14,10 @@ from entities import (
     create_reservation, Reservation, User, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
-TEXT_BUTTON_1 = "Забронируй мне место"
-TEXT_BUTTON_2 = "Отправь отчёт по брони"
-TEXT_BUTTON_3 = "Отмени бронь"
+TEXT_BUTTON_1 = "Забронируй мне место 🅿️"
+TEXT_BUTTON_2 = "Отправь отчёт по брони за 2 недели 📝"
+TEXT_BUTTON_3 = "Отмени бронь ❌"
+TEXT_BUTTON_4 = "Покажи свободные места на текущую дату 🕒"
 START_MESSAGE = "Привет!\nМеня зовут Анна.\nПомогу забронировать место на парковке."
 HELP_MESSAGE = "/start - и мы начнём диалог сначала 👀\n/help - выводит данную подсказку 💁🏻‍♀️"
 ALL_SPOT_ARE_BUSY_MESSAGE = "к сожалению, все места заняты 😢"
@@ -29,7 +30,7 @@ UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
 UNKNOWN_ERROR_MESSAGE = "Произошла какая-то ошибка. Мне так жаль 😢"
 NO_RESERVATIONS_MESSAGE = "Кажется, пока никто ничего не забронировал 😒"
 CANCEL_SUCCESS_MESSAGE = "Хорошо, удалила. 🫴🏻"
-TEXT_ADD_USER_BUTTON = "Добавить пользователя"
+TEXT_ADD_USER_BUTTON = "Добавить пользователя 👤"
 INPUT_USERNAME_MESSAGE = "Введите username пользователя.\nЕсли его нет, введите 0"
 INPUT_FIRST_NAME_MESSAGE = "Введите имя (first name) пользователя. \nЕсли его нет, введите 0"
 INPUT_LAST_NAME_MESSAGE = "Введите фамилию (last name) пользователя\nЕсли его нет, введите 0"
@@ -52,11 +53,11 @@ class FSMFillForm(StatesGroup):
     # Создаем экземпляры класса State, последовательно
     # перечисляя возможные состояния, в которых будет находиться
     # бот в разные моменты взаимодейтсвия с пользователем
-    add_user = State()          # Состояние ожидания добавления нового пользователя в БД
-    add_username = State()      # Состояние ожидания ввода username для нового пользователя
-    add_first_name = State()    # Состояние ожидания ввода имени для нового пользователя
-    add_last_name = State()     # Состояние ожидания ввода фамилии для нового пользователя
-    choose_role = State()       # Состояние ожидания выбора роли нового пользователя
+    add_user = State()  # Состояние ожидания добавления нового пользователя в БД
+    add_username = State()  # Состояние ожидания ввода username для нового пользователя
+    add_first_name = State()  # Состояние ожидания ввода имени для нового пользователя
+    add_last_name = State()  # Состояние ожидания ввода фамилии для нового пользователя
+    choose_role = State()  # Состояние ожидания выбора роли нового пользователя
 
 
 def get_inline_keyboard_for_booking(
@@ -115,28 +116,37 @@ def create_start_menu_keyboard(
         is_show_book_button: bool,
         is_show_report_button: bool,
         is_show_cancel_button: bool,
-        is_show_adduser_button: bool = False
+        is_show_adduser_button: bool = False,
+        is_show_free_spots_button: bool = False
 ) -> ReplyKeyboardMarkup:
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
     book_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
     report_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
     cancel_reservation_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_3)
     add_user_button: KeyboardButton = KeyboardButton(text=TEXT_ADD_USER_BUTTON)
+    show_free_spots: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_4)
 
     buttons_list = []
 
+    """ 
+    Каждый массив - один ряд кнопок.
+    Чтобы кнопка была в отдельном ряду, необходимо, 
+    чтобы каждая кнопка была в отдельном массиве 
+    """
     if is_show_book_button:
-        buttons_list.append(book_button)
+        buttons_list.append([book_button])
     if is_show_report_button:
-        buttons_list.append(report_button)
+        buttons_list.append([report_button])
     if is_show_cancel_button:
-        buttons_list.append(cancel_reservation_button)
+        buttons_list.append([cancel_reservation_button])
     if is_show_adduser_button:
-        buttons_list.append(add_user_button)
+        buttons_list.append([add_user_button])
+    if is_show_free_spots_button:
+        buttons_list.append([show_free_spots])
 
-    # Создаем объект клавиатуры, добавляя в него кнопки
+    """ Создаем объект клавиатуры, добавляя в него кнопки """
     keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
-        keyboard=[buttons_list],
+        keyboard=buttons_list,
         resize_keyboard=True
     )
 
@@ -147,6 +157,7 @@ def create_start_menu_keyboard(
 async def process_start_command(message: Message, state: FSMContext):
     """ Этот хэндлер обрабатывает команду "/start" """
 
+    """ Проверяем, что команды прислал известный пользователь """
     if is_message_from_unknown_user(message):
         await message.reply(
             UNKNOWN_USER_MESSAGE_1
@@ -156,10 +167,12 @@ async def process_start_command(message: Message, state: FSMContext):
         )
         return 0
 
+    """ Переменные, указывающие на то, какие кнопки меню будут доступны в дальнейшем """
     show_book_button = False
     show_report_button = False
     show_cancel_button = False
     show_add_user_button = False
+    show_free_spots_now = False
 
     """ Топорно пропишем полномочия на кнопки меню """
     user_role = get_user_role(message)
@@ -167,8 +180,10 @@ async def process_start_command(message: Message, state: FSMContext):
         show_book_button = True
         show_report_button = True
         show_add_user_button = True
+        show_free_spots_now = True
     elif user_role == ROLE_AUDITOR:
         show_report_button = True
+        show_free_spots_now = True
     elif user_role == ROLE_CLIENT:
         show_book_button = True
 
@@ -187,13 +202,16 @@ async def process_start_command(message: Message, state: FSMContext):
     else:
         checking_date = current_date
 
+    """ Проверяем есть ли у пользователя уже брони на текущую дату """
     reserved_spots = Reservation.select().where(
         Reservation.booking_date == checking_date,
         Reservation.user_id == requester.id
     ).count()
 
+    """ Если есть, то показываем кнопку отмены, а кнопку бронирования убираем """
     if reserved_spots > 0:
         show_cancel_button = True
+        show_book_button = False
 
     await state.clear()
 
@@ -203,7 +221,8 @@ async def process_start_command(message: Message, state: FSMContext):
             show_book_button,
             show_report_button,
             show_cancel_button,
-            show_add_user_button
+            show_add_user_button,
+            show_free_spots_now
         )
     )
 
@@ -407,6 +426,40 @@ async def process_answer(message: Message):
     )
 
 
+@dp.message(F.text == TEXT_BUTTON_4)
+async def process_answer_free_spots(message: Message):
+    """ Обработчик запроса на выгрузку отчёта по свободным местам """
+
+    if is_message_from_unknown_user(message):
+        await message.reply(
+            UNKNOWN_USER_MESSAGE_1
+        )
+        await message.answer(
+            UNKNOWN_USER_MESSAGE_2
+        )
+        return 0
+
+    if get_user_role(message) == ROLE_CLIENT:
+        await message.reply(
+            ACCESS_IS_NOT_ALLOWED_MESSAGE
+        )
+        return 0
+
+    available_spots, available_date = get_booking_options()
+
+    report = ""
+    spots_name = []
+    for one_spot in available_spots:
+        spots_name.append(one_spot.name)
+    report = "; ".join(spots_name)
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=f"На {available_date} доступны следующие парковочные места:\n{report}",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+
 @dp.message(F.text == TEXT_BUTTON_3)
 async def process_cancel(message: Message):
     """ Этот хэндлер срабатывает на просьбу отменить бронь """
@@ -455,16 +508,16 @@ async def process_cancel(message: Message):
 
         """ Создаем объект инлайн-клавиатуры """
         keyboard: InlineKeyboardMarkup = InlineKeyboardMarkup(
-                inline_keyboard=[[one_button]])
+            inline_keyboard=[[one_button]])
         await message.answer(
-            text=" ".join(["У Вас есть бронь места:", reservation_by_user.parking_spot_id.name, "на", str(checking_date)]),
+            text=" ".join(
+                ["У Вас есть бронь места:", reservation_by_user.parking_spot_id.name, "на", str(checking_date)]),
             reply_markup=keyboard
         )
 
 
 @dp.callback_query(lambda c: c.data.startswith('cancel'))
 async def process_button_cancel(callback_query: CallbackQuery):
-
     """ Получаем данные из нажатой кнопки """
     button_data = callback_query.data
     query_data = button_data.split()
@@ -550,7 +603,6 @@ async def process_adduser_first_name(message: Message, state: FSMContext):
 # Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
 @dp.message(StateFilter(FSMFillForm.add_last_name))
 async def process_adduser_lastname(message: Message, state: FSMContext):
-
     await state.update_data(last_name=message.text)
 
     await bot.send_message(
@@ -609,4 +661,3 @@ async def process_other_messages(message: Message):
     """ Обработчик остальных сообщений. Выводит сообщение и вызывает обработчик /help """
     await message.answer(text=UNKNOWN_TEXT_MESSAGE)
     await process_help_command(message)
-
