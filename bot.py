@@ -1,16 +1,17 @@
 from datetime import datetime, timedelta, date
-from typing import Union, Optional
-
+from typing import Union
 import yaml
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State, default_state
 from aiogram.types import (
     ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name, get_user_role,
-    create_reservation, Reservation, User, Role, ParkingSpot)
+    create_reservation, Reservation, User, ParkingSpot)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место"
@@ -28,20 +29,34 @@ UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
 UNKNOWN_ERROR_MESSAGE = "Произошла какая-то ошибка. Мне так жаль 😢"
 NO_RESERVATIONS_MESSAGE = "Кажется, пока никто ничего не забронировал 😒"
 CANCEL_SUCCESS_MESSAGE = "Хорошо, удалила. 🫴🏻"
+TEXT_ADD_USER_BUTTON = "Добавить пользователя"
+INPUT_USERNAME_MESSAGE = "Введите username пользователя.\nЕсли его нет, введите 0"
+INPUT_FIRST_NAME_MESSAGE = "Введите имя (first name) пользователя. \nЕсли его нет, введите 0"
+INPUT_LAST_NAME_MESSAGE = "Введите фамилию (last name) пользователя\nЕсли его нет, введите 0"
+CHOOSE_ROLE_MESSAGE = "Выберите роль пользователя:\n1 - Administrator\n2 - Auditor\n3 - Client\n"
+USER_ADDED_SUCCESS_MESSAGE = "Записала ✍🏻\nБуду рада познакомиться с новым пользователем 👀"
+UNCORRECT_CHOICE_MESSAGE = "Ну нет такого варианта! 🤦🏻‍♀️"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
 ROLE_CLIENT = "CLIENT"
-
-all_roles_obj = []
-all_users_obj = []
-all_spots_obj = []
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 
 TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
+
+
+class FSMFillForm(StatesGroup):
+    # Создаем экземпляры класса State, последовательно
+    # перечисляя возможные состояния, в которых будет находиться
+    # бот в разные моменты взаимодейтсвия с пользователем
+    add_user = State()          # Состояние ожидания добавления нового пользователя в БД
+    add_username = State()      # Состояние ожидания ввода username для нового пользователя
+    add_first_name = State()    # Состояние ожидания ввода имени для нового пользователя
+    add_last_name = State()     # Состояние ожидания ввода фамилии для нового пользователя
+    choose_role = State()       # Состояние ожидания выбора роли нового пользователя
 
 
 def get_inline_keyboard_for_booking(
@@ -100,11 +115,13 @@ def create_start_menu_keyboard(
         is_show_book_button: bool,
         is_show_report_button: bool,
         is_show_cancel_button: bool,
+        is_show_adduser_button: bool = False
 ) -> ReplyKeyboardMarkup:
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
     book_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_1)
     report_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
     cancel_reservation_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_3)
+    add_user_button: KeyboardButton = KeyboardButton(text=TEXT_ADD_USER_BUTTON)
 
     buttons_list = []
 
@@ -114,6 +131,8 @@ def create_start_menu_keyboard(
         buttons_list.append(report_button)
     if is_show_cancel_button:
         buttons_list.append(cancel_reservation_button)
+    if is_show_adduser_button:
+        buttons_list.append(add_user_button)
 
     # Создаем объект клавиатуры, добавляя в него кнопки
     keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
@@ -125,7 +144,7 @@ def create_start_menu_keyboard(
 
 
 @dp.message(Command(commands=["start"]))
-async def process_start_command(message: Message):
+async def process_start_command(message: Message, state: FSMContext):
     """ Этот хэндлер обрабатывает команду "/start" """
 
     if is_message_from_unknown_user(message):
@@ -140,12 +159,14 @@ async def process_start_command(message: Message):
     show_book_button = False
     show_report_button = False
     show_cancel_button = False
+    show_add_user_button = False
 
     """ Топорно пропишем полномочия на кнопки меню """
     user_role = get_user_role(message)
     if user_role == ROLE_ADMINISTRATOR:
         show_book_button = True
         show_report_button = True
+        show_add_user_button = True
     elif user_role == ROLE_AUDITOR:
         show_report_button = True
     elif user_role == ROLE_CLIENT:
@@ -174,9 +195,16 @@ async def process_start_command(message: Message):
     if reserved_spots > 0:
         show_cancel_button = True
 
+    await state.clear()
+
     await message.answer(
         START_MESSAGE,
-        reply_markup=create_start_menu_keyboard(show_book_button, show_report_button, show_cancel_button)
+        reply_markup=create_start_menu_keyboard(
+            show_book_button,
+            show_report_button,
+            show_cancel_button,
+            show_add_user_button
+        )
     )
 
 
@@ -327,15 +355,7 @@ if __name__ == '__main__':
     dp.run_polling(bot)
 
 
-def run_bot(data: dict):
-    """ Функция запуска бота """
-    global all_users_obj
-    global all_roles_obj
-    global all_spots_obj
-    all_users_obj = data["all_users_obj"]
-    all_roles_obj = data["all_roles_obj"]
-    all_spots_obj = data["all_spots_obj"]
-
+def run_bot():
     print("Запускаю бота...")
     dp.run_polling(bot)
 
@@ -469,8 +489,124 @@ async def process_button_cancel(callback_query: CallbackQuery):
     )
 
 
+# Этот хэндлер будет срабатывать на команду добавления нового пользователя в состоянии по умолчанию
+@dp.message(F.text == TEXT_ADD_USER_BUTTON, StateFilter(default_state))
+async def process_adduser_command(message: Message, state: FSMContext):
+    if is_message_from_unknown_user(message):
+        await message.reply(
+            UNKNOWN_USER_MESSAGE_1
+        )
+        await message.answer(
+            UNKNOWN_USER_MESSAGE_2
+        )
+        return 0
+
+    if get_user_role(message) == ROLE_AUDITOR:
+        await message.reply(
+            ACCESS_IS_NOT_ALLOWED_MESSAGE
+        )
+        return 0
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=INPUT_USERNAME_MESSAGE,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(FSMFillForm.add_username)
+
+
+# Этот хэндлер будет срабатывать на команду добавления пользователя в состоянии add_user
+@dp.message(StateFilter(FSMFillForm.add_username))
+async def process_adduser_username_input(message: Message, state: FSMContext):
+    username = None
+    if message.text != "0":
+        username = message.text
+    await state.update_data(username=message.text)
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=INPUT_FIRST_NAME_MESSAGE,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(FSMFillForm.add_first_name)
+
+
+# Этот хэндлер будет срабатывать на ввод имени нового пользователя
+@dp.message(StateFilter(FSMFillForm.add_first_name))
+async def process_adduser_first_name(message: Message, state: FSMContext):
+    first_name = "-"
+    if message.text != "0":
+        first_name = message.text
+    await state.update_data(first_name=message.text)
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=INPUT_LAST_NAME_MESSAGE,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(FSMFillForm.add_last_name)
+
+
+# Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
+@dp.message(StateFilter(FSMFillForm.add_last_name))
+async def process_adduser_lastname(message: Message, state: FSMContext):
+
+    await state.update_data(last_name=message.text)
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=CHOOSE_ROLE_MESSAGE,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(FSMFillForm.choose_role)
+
+
+# Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
+@dp.message(StateFilter(FSMFillForm.choose_role))
+async def process_adduser_choose_role(message: Message, state: FSMContext):
+    data = await state.get_data()
+    new_user_username = data['username']
+    new_user_first_name = data['first_name']
+    new_user_last_name = data['last_name']
+    new_user_role_id = message.text
+
+    try:
+        new_user_role_id_int = int(new_user_role_id)
+    except ValueError:
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="Что-то не то ... 🤔",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+
+    if new_user_role_id_int > 3 or (new_user_role_id_int < 1):
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=UNCORRECT_CHOICE_MESSAGE,
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+
+    # Будет ошибка, если нет такого id
+    User.add_user(
+        username=new_user_username,
+        first_name=new_user_first_name,
+        last_name=new_user_last_name,
+        role_id=int(new_user_role_id)
+    )
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=USER_ADDED_SUCCESS_MESSAGE,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.clear()
+
+
 @dp.message()
 async def process_other_messages(message: Message):
     """ Обработчик остальных сообщений. Выводит сообщение и вызывает обработчик /help """
     await message.answer(text=UNKNOWN_TEXT_MESSAGE)
     await process_help_command(message)
+

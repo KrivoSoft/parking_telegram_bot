@@ -1,6 +1,7 @@
 from entities import *
 import yaml
 import bot
+import os
 
 """ Получаем данные из файла настроек """
 with open('settings.yml', 'r') as file:
@@ -21,37 +22,14 @@ all_roles_names = [
 
 all_users = CONSTANTS["USERS"]
 
-if os.path.isfile(db_name):
-    data = {
-        "all_roles_obj": [],
-        "all_users_obj": [],
-        "all_spots_obj": []
-    }
-
-    query = Role.select()
-    for obj in query:
-        data["all_roles_obj"].append(obj)
-
-    query = User.select()
-    for obj in query:
-        data["all_users_obj"].append(obj)
-
-    query = ParkingSpot.select()
-    for obj in query:
-        data["all_spots_obj"].append(obj)
-
-    print(data)
-else:
+if not os.path.isfile(db_name):
     create_tables()
-
-    # Добавляем записи в БД:
-    all_roles_obj = load_roles(all_roles_names)
-    all_users_obj = load_users(all_users, all_roles_obj)
-    all_spots_obj = load_spots(parking_spots)
+    all_roles_obj = Role.load_roles(all_roles_names)
+    all_users_obj = User.load_users(all_users)
+    all_spots_obj = ParkingSpot.load_spots(parking_spots)
     data = {
         "all_roles_obj": all_roles_obj,
         "all_users_obj": all_users_obj,
         "all_spots_obj": all_spots_obj
     }
-
-bot.run_bot(data)
+bot.run_bot()
