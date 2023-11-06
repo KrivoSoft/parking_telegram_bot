@@ -46,7 +46,7 @@ ROLE_CLIENT = "CLIENT"
 with open('settings.yml', 'r') as file:
     CONSTANTS = yaml.safe_load(file)
 
-TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
+TODAY_DEADLINE_CLOCK_FOR_CLIENTS = CONSTANTS["TODAY_DEADLINE_CLOCK_FOR_CLIENTS"]
 
 
 class FSMFillForm(StatesGroup):
@@ -58,6 +58,7 @@ class FSMFillForm(StatesGroup):
     add_first_name = State()  # Состояние ожидания ввода имени для нового пользователя
     add_last_name = State()  # Состояние ожидания ввода фамилии для нового пользователя
     choose_role = State()  # Состояние ожидания выбора роли нового пользователя
+    book_spot = State()  # Состаяние ожидания подтверждение на бронирование места
 
 
 def get_inline_keyboard_for_booking(
@@ -197,7 +198,7 @@ async def process_start_command(message: Message, state: FSMContext):
     current_date = date.today()
     current_time = datetime.now().time()
 
-    if current_time.hour >= TODAY_DEADLINE_CLOCK:
+    if current_time.hour >= TODAY_DEADLINE_CLOCK_FOR_CLIENTS:
         checking_date = current_date + timedelta(days=1)
     else:
         checking_date = current_date
@@ -234,7 +235,7 @@ async def process_help_command(message: Message):
 
 
 @dp.message(F.text == TEXT_BUTTON_1)
-async def process_answer(message: Message):
+async def process_answer_book(message: Message):
     """ Этот хэндлер срабатывает на просьбу забронировать место """
     if is_message_from_unknown_user(message):
         await message.reply(
@@ -261,7 +262,7 @@ async def process_answer(message: Message):
     current_date = date.today()
     current_time = datetime.now().time()
 
-    if current_time.hour >= TODAY_DEADLINE_CLOCK:
+    if current_time.hour >= TODAY_DEADLINE_CLOCK_FOR_CLIENTS:
         checking_date = current_date + timedelta(days=1)
     else:
         checking_date = current_date
@@ -286,10 +287,18 @@ async def process_answer(message: Message):
         )
         return 0
 
-    available_spots, available_date = get_booking_options()
+    current_date = date.today()
+    current_time = datetime.now().time()
+
+    if current_time.hour >= TODAY_DEADLINE_CLOCK_FOR_CLIENTS:
+        date_for_book = current_date + timedelta(days=1)
+    else:
+        date_for_book = current_date
+
+    available_spots = get_booking_options(date_for_book)
 
     if len(available_spots) > 0:
-        inline_keyboard = get_inline_keyboard_for_booking(available_spots, available_date)
+        inline_keyboard = get_inline_keyboard_for_booking(available_spots, date_for_book)
 
         await message.reply(
             text=" ".join([DATE_REQUEST_MESSAGE, "на", str(checking_date)]),
@@ -380,7 +389,7 @@ def run_bot():
 
 
 @dp.message(F.text == TEXT_BUTTON_2)
-async def process_answer(message: Message):
+async def process_answer_send_report(message: Message):
     """ Обработчик запроса на выгрузку отчёта по занятым местам """
 
     if is_message_from_unknown_user(message):
@@ -445,17 +454,23 @@ async def process_answer_free_spots(message: Message):
         )
         return 0
 
-    available_spots, available_date = get_booking_options()
+    current_date = date.today()
+    current_time = datetime.now().time()
 
-    report = ""
+    if current_time.hour >= TODAY_DEADLINE_CLOCK_FOR_CLIENTS:
+        date_for_book = current_date + timedelta(days=1)
+    else:
+        date_for_book = current_date
+    available_spots = get_booking_options(date_for_book)
+
     spots_name = []
     for one_spot in available_spots:
         spots_name.append(one_spot.name)
-    report = "; ".join(spots_name)
+    report = "\n".join(spots_name)
 
     await bot.send_message(
         chat_id=message.chat.id,
-        text=f"На {available_date} доступны следующие парковочные места:\n{report}",
+        text=f"На {date_for_book} доступны следующие парковочные места:\n{report}",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -488,7 +503,7 @@ async def process_cancel(message: Message):
     current_date = date.today()
     current_time = datetime.now().time()
 
-    if current_time.hour >= TODAY_DEADLINE_CLOCK:
+    if current_time.hour >= TODAY_DEADLINE_CLOCK_FOR_CLIENTS:
         checking_date = current_date + timedelta(days=1)
     else:
         checking_date = current_date

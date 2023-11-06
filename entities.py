@@ -13,7 +13,8 @@ reservation_period_days = CONSTANTS['RESERVATION_PERIOD_DAYS']
 db_name = CONSTANTS['DB_NAME']
 db = SqliteDatabase(db_name)
 
-TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
+TODAY_DEADLINE_CLOCK_FOR_CLIENTS = CONSTANTS["TODAY_DEADLINE_CLOCK_FOR_CLIENTS"]
+TODAY_DEADLINE_CLOCK_FOR_AUDITORS = CONSTANTS["TODAY_DEADLINE_CLOCK_FOR_AUDITORS"]
 
 """ Сущности, описывающие хранимые в БД записи """
 
@@ -188,16 +189,8 @@ def get_parking_spot_by_name(spot_name: str, all_spots: list[ParkingSpot]) -> Op
                 return one_spot
 
 
-def get_booking_options() -> tuple[list[ParkingSpot], date]:
+def get_booking_options(date_for_book: date) -> list[ParkingSpot]:
     """ Функция, получающая доступные для бронирования варианты """
-
-    current_date = date.today()
-    current_time = datetime.now().time()
-
-    if current_time.hour >= TODAY_DEADLINE_CLOCK:
-        date_for_book = current_date + timedelta(days=1)
-    else:
-        date_for_book = current_date
 
     available_spots_for_book = []
     all_spots = ParkingSpot.select()
@@ -206,7 +199,7 @@ def get_booking_options() -> tuple[list[ParkingSpot], date]:
         if is_spot_free(one_spot, date_for_book):
             available_spots_for_book.append(one_spot)
 
-    return available_spots_for_book, date_for_book
+    return available_spots_for_book
 
 
 def get_user_role(message: Message) -> Optional[str]:
