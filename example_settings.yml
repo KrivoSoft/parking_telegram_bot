@@ -30,4 +30,5 @@ USERS:
     role: "CLIENT"
 
 # Время в 24-часовом формате, с которого не будет доступно бронирование парковочных мест на сегодня
-TODAY_DEADLINE_CLOCK: 7
+TODAY_DEADLINE_CLOCK_FOR_CLIENTS: 7
+TODAY_DEADLINE_CLOCK_FOR_AUDITORS: 9
