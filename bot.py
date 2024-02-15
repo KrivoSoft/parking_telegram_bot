@@ -11,7 +11,7 @@ from aiogram.types import (
 from aiogram.types import Message
 from entities import (
     get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name, get_user_role,
-    create_reservation, Reservation, User, ParkingSpot)
+    create_reservation, Reservation, User, ParkingSpot, Guest, Role)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место 🅿️"
@@ -34,9 +34,12 @@ TEXT_ADD_USER_BUTTON = "Добавить пользователя 👤"
 INPUT_USERNAME_MESSAGE = "Введите username пользователя.\nЕсли его нет, введите 0"
 INPUT_FIRST_NAME_MESSAGE = "Введите имя (first name) пользователя. \nЕсли его нет, введите 0"
 INPUT_LAST_NAME_MESSAGE = "Введите фамилию (last name) пользователя\nЕсли его нет, введите 0"
-CHOOSE_ROLE_MESSAGE = "Выберите роль пользователя:\n1 - Administrator\n2 - Auditor\n3 - Client\n"
+CHOOSE_ROLE_MESSAGE = "Выберите роль пользователя:\n"
 USER_ADDED_SUCCESS_MESSAGE = "Записала ✍🏻\nБуду рада познакомиться с новым пользователем 👀"
 UNCORRECT_CHOICE_MESSAGE = "Ну нет такого варианта! 🤦🏻‍♀️"
+CHOOSE_GUEST_MESSAGE = "Ко мне приходили следующие неизвестные пользователи ... 👁️"
+NO_GUESTS_MESSAGE = "Ко мне никто не приходил. Некого добавлять 🤷🏻‍♀️"
+SUCCESS_MESSAGE = "Успешно"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -54,9 +57,6 @@ class FSMFillForm(StatesGroup):
     # перечисляя возможные состояния, в которых будет находиться
     # бот в разные моменты взаимодейтсвия с пользователем
     add_user = State()  # Состояние ожидания добавления нового пользователя в БД
-    add_username = State()  # Состояние ожидания ввода username для нового пользователя
-    add_first_name = State()  # Состояние ожидания ввода имени для нового пользователя
-    add_last_name = State()  # Состояние ожидания ввода фамилии для нового пользователя
     choose_role = State()  # Состояние ожидания выбора роли нового пользователя
     book_spot = State()  # Состаяние ожидания подтверждение на бронирование места
 
@@ -160,6 +160,22 @@ async def process_start_command(message: Message, state: FSMContext):
 
     """ Проверяем, что команды прислал известный пользователь """
     if is_message_from_unknown_user(message):
+
+        """ Проверяем, если этот пользователь уже обращался к боту, то заносить его повторно не нужно """
+        guest = Guest.select().where(
+            (Guest.username == message.from_user.username) &
+            (Guest.first_name == message.from_user.first_name) &
+            (Guest.last_name == message.from_user.last_name)
+        ).first()
+        if guest is None:
+            """ Добавляем нового гостя в БД """
+            new_guest = Guest.create(
+                username=message.from_user.username,
+                first_name=message.from_user.first_name,
+                last_name=message.from_user.last_name
+            )
+            new_guest.save()
+
         await message.reply(
             UNKNOWN_USER_MESSAGE_1
         )
@@ -575,100 +591,187 @@ async def process_adduser_command(message: Message, state: FSMContext):
         )
         return 0
 
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=INPUT_USERNAME_MESSAGE,
-        reply_markup=ReplyKeyboardRemove()
+    guests = Guest.select()
+
+    """ Если не было гостей, то выводим сообщение """
+    if len(guests) == 0:
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=NO_GUESTS_MESSAGE,
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return 0
+
+    for guest in guests:
+        pass
+
+    buttons_list = []
+
+    """ Создаём кнопку для каждого пользователя в таблице guests """
+    for guest in guests:
+        one_button: InlineKeyboardButton = InlineKeyboardButton(
+            text=str(guest),
+            callback_data=f'adduser {guest.id}')
+        buttons_list.append(one_button)
+
+    """ Создаем объект инлайн-клавиатуры """
+    keyboard: InlineKeyboardMarkup = InlineKeyboardMarkup(
+        inline_keyboard=[buttons_list])
+
+    await message.answer(
+        text="Ко мне обращались следующие пользователи:\n",
+        reply_markup=keyboard
     )
-    await state.set_state(FSMFillForm.add_username)
+
+    await state.set_state(FSMFillForm.add_user)
 
 
-# Этот хэндлер будет срабатывать на команду добавления пользователя в состоянии add_user
-@dp.message(StateFilter(FSMFillForm.add_username))
-async def process_adduser_username_input(message: Message, state: FSMContext):
-    username = None
-    if message.text != "0":
-        username = message.text
-    await state.update_data(username=message.text)
+@dp.callback_query(lambda c: c.data.startswith('adduser'), StateFilter(FSMFillForm.add_user))
+async def process_button_addguest(callback_query: CallbackQuery, state: FSMContext):
+    """ Обрабатываем событие добавления нового пользователя """
+    button_data = callback_query.data
+    query_data = button_data.split()
+    guest_id = query_data[1]
 
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=INPUT_FIRST_NAME_MESSAGE,
-        reply_markup=ReplyKeyboardRemove()
+    buttons_list = []
+    buttons_list.append(
+        InlineKeyboardButton(
+            text=str(ROLE_ADMINISTRATOR),
+            callback_data=f'addrole {guest_id} {ROLE_ADMINISTRATOR}')
     )
-    await state.set_state(FSMFillForm.add_first_name)
-
-
-# Этот хэндлер будет срабатывать на ввод имени нового пользователя
-@dp.message(StateFilter(FSMFillForm.add_first_name))
-async def process_adduser_first_name(message: Message, state: FSMContext):
-    first_name = "-"
-    if message.text != "0":
-        first_name = message.text
-    await state.update_data(first_name=message.text)
-
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=INPUT_LAST_NAME_MESSAGE,
-        reply_markup=ReplyKeyboardRemove()
+    buttons_list.append(
+        InlineKeyboardButton(
+            text=str(ROLE_AUDITOR),
+            callback_data=f'addrole {guest_id} {ROLE_AUDITOR}')
     )
-    await state.set_state(FSMFillForm.add_last_name)
+    buttons_list.append(
+        InlineKeyboardButton(
+            text=str(ROLE_CLIENT),
+            callback_data=f'addrole {guest_id} {ROLE_CLIENT}')
+    )
 
+    """ Создаем объект инлайн-клавиатуры """
+    keyboard: InlineKeyboardMarkup = InlineKeyboardMarkup(
+        inline_keyboard=[buttons_list])
 
-# Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
-@dp.message(StateFilter(FSMFillForm.add_last_name))
-async def process_adduser_lastname(message: Message, state: FSMContext):
-    await state.update_data(last_name=message.text)
-
+    """ Отправляем ответ пользователю """
     await bot.send_message(
-        chat_id=message.chat.id,
+        chat_id=callback_query.message.chat.id,
         text=CHOOSE_ROLE_MESSAGE,
+        reply_markup=keyboard
+    )
+
+    await callback_query.answer(
+        text=SUCCESS_MESSAGE,
         reply_markup=ReplyKeyboardRemove()
     )
-    await state.set_state(FSMFillForm.choose_role)
 
 
-# Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
-@dp.message(StateFilter(FSMFillForm.choose_role))
-async def process_adduser_choose_role(message: Message, state: FSMContext):
-    data = await state.get_data()
-    new_user_username = data['username']
-    new_user_first_name = data['first_name']
-    new_user_last_name = data['last_name']
-    new_user_role_id = message.text
+@dp.callback_query(lambda c: c.data.startswith('addrole'), StateFilter(FSMFillForm.add_user))
+async def process_button_choose_role(callback_query: CallbackQuery, state: FSMContext):
+    """ Обрабатываем событие добавления нового пользователя """
+    button_data = callback_query.data
+    query_data = button_data.split()
+    guest_id = query_data[1]
+    guest_role = query_data[2]
 
-    try:
-        new_user_role_id_int = int(new_user_role_id)
-    except ValueError:
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="Что-то не то ... 🤔",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        return
+    guest = Guest.get_by_id(guest_id)
 
-    if new_user_role_id_int > 3 or (new_user_role_id_int < 1):
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text=UNCORRECT_CHOICE_MESSAGE,
-            reply_markup=ReplyKeyboardRemove()
-        )
-        return
-
-    # Будет ошибка, если нет такого id
-    User.add_user(
-        username=new_user_username,
-        first_name=new_user_first_name,
-        last_name=new_user_last_name,
-        role_id=int(new_user_role_id)
+    new_user = User.create(
+        username=guest.username,
+        first_name=guest.first_name,
+        last_name=guest.last_name,
+        role_id=Role.select().where(Role.name == guest_role)
     )
+    new_user.save()
+    print("Ну ок")
 
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=USER_ADDED_SUCCESS_MESSAGE,
-        reply_markup=ReplyKeyboardRemove()
-    )
-    await state.clear()
+# # Этот хэндлер будет срабатывать на команду добавления пользователя в состоянии add_user
+# @dp.message(StateFilter(FSMFillForm.add_username))
+# async def process_adduser_username_input(message: Message, state: FSMContext):
+#     username = None
+#     if message.text != "0":
+#         username = message.text
+#     await state.update_data(username=message.text)
+#
+#     await bot.send_message(
+#         chat_id=message.chat.id,
+#         text=INPUT_FIRST_NAME_MESSAGE,
+#         reply_markup=ReplyKeyboardRemove()
+#     )
+#     await state.set_state(FSMFillForm.add_first_name)
+#
+#
+# # Этот хэндлер будет срабатывать на ввод имени нового пользователя
+# @dp.message(StateFilter(FSMFillForm.add_first_name))
+# async def process_adduser_first_name(message: Message, state: FSMContext):
+#     first_name = "-"
+#     if message.text != "0":
+#         first_name = message.text
+#     await state.update_data(first_name=message.text)
+#
+#     await bot.send_message(
+#         chat_id=message.chat.id,
+#         text=INPUT_LAST_NAME_MESSAGE,
+#         reply_markup=ReplyKeyboardRemove()
+#     )
+#     await state.set_state(FSMFillForm.add_last_name)
+
+
+# Этот хэндлер будет предлагать выбрать роль нового пользователя
+# @dp.message(StateFilter(FSMFillForm.add_last_name))
+# async def process_adduser_lastname(message: Message, state: FSMContext):
+#     await state.update_data(last_name=message.text)
+#
+#     await bot.send_message(
+#         chat_id=message.chat.id,
+#         text=CHOOSE_ROLE_MESSAGE,
+#         reply_markup=ReplyKeyboardRemove()
+#     )
+#     await state.set_state(FSMFillForm.choose_role)
+
+
+# # Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
+# @dp.message(StateFilter(FSMFillForm.choose_role))
+# async def process_adduser_choose_role(message: Message, state: FSMContext):
+#     data = await state.get_data()
+#     new_user_username = data['username']
+#     new_user_first_name = data['first_name']
+#     new_user_last_name = data['last_name']
+#     new_user_role_id = message.text
+#
+#     try:
+#         new_user_role_id_int = int(new_user_role_id)
+#     except ValueError:
+#         await bot.send_message(
+#             chat_id=message.chat.id,
+#             text="Что-то не то ... 🤔",
+#             reply_markup=ReplyKeyboardRemove()
+#         )
+#         return
+#
+#     if new_user_role_id_int > 3 or (new_user_role_id_int < 1):
+#         await bot.send_message(
+#             chat_id=message.chat.id,
+#             text=UNCORRECT_CHOICE_MESSAGE,
+#             reply_markup=ReplyKeyboardRemove()
+#         )
+#         return
+#
+#     # Будет ошибка, если нет такого id
+#     User.add_user(
+#         username=new_user_username,
+#         first_name=new_user_first_name,
+#         last_name=new_user_last_name,
+#         role_id=int(new_user_role_id)
+#     )
+#
+#     await bot.send_message(
+#         chat_id=message.chat.id,
+#         text=USER_ADDED_SUCCESS_MESSAGE,
+#         reply_markup=ReplyKeyboardRemove()
+#     )
+#     await state.clear()
 
 
 @dp.message()

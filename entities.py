@@ -77,6 +77,7 @@ class User(BaseModel):
     last_name = CharField(null=True)
     role_id = ForeignKeyField(Role, backref="role_id")
 
+
     class Meta:
         table_name = 'users'
 
@@ -128,10 +129,25 @@ class Reservation(BaseModel):
         return self.booking_date
 
 
+class Guest(BaseModel):
+    username = CharField(null=True)
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
+
+    class Meta:
+        table_name = 'guests'
+
+    def __repr__(self):
+        return " ".join([str(self.username), str(self.first_name), str(self.last_name)])
+
+    def __str__(self):
+        return " ".join([str(self.username), str(self.first_name), str(self.last_name)])
+
+
 def create_tables() -> None:
     """ Создание таблиц при создании новой БД """
     db.connect()
-    db.create_tables([ParkingSpot, Reservation, User, Role])
+    db.create_tables([ParkingSpot, Reservation, User, Role, Guest])
 
 
 def create_reservation(spot_id: int, date: str, user: User) -> None:
