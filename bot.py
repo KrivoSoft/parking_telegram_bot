@@ -23,7 +23,7 @@ HELP_MESSAGE = "/start - и мы начнём диалог сначала 👀\n
 ALL_SPOT_ARE_BUSY_MESSAGE = "к сожалению, все места заняты 😢"
 DATE_REQUEST_MESSAGE = 'Сейчас посмотрим, что я могу Вам предложить'
 ACCESS_IS_NOT_ALLOWED_MESSAGE = "Нет 🙅🏻‍♀️"
-UNKNOWN_USER_MESSAGE_1 = "Простите, я с незнакомцами не разговариваю 🙄"
+UNKNOWN_USER_MESSAGE_1 = "Эммм ... Мы с Вами знакомы? 👀"
 UNKNOWN_USER_MESSAGE_2 = "💅🏻"
 BEFORE_SEND_REPORT_MESSAGE = "Конечно! Вот Ваш отчёт:\n\n"
 UNKNOWN_TEXT_MESSAGE = "Эммм ... 👀"
@@ -113,6 +113,19 @@ def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool
         return False
 
 
+async def is_user_unauthorized(message: Message):
+    authorized_ids = [user.telegram_id for user in User.select()]
+
+    if message.from_user.id not in authorized_ids:
+        await message.answer("У вас нет доступа к этой команде.")
+        return True
+    return False
+
+
+async def send_refusal_unauthorized(message: Message):
+    await message.answer(UNKNOWN_USER_MESSAGE_1)
+
+
 def create_start_menu_keyboard(
         is_show_book_button: bool,
         is_show_report_button: bool,
@@ -157,6 +170,10 @@ def create_start_menu_keyboard(
 @dp.message(Command(commands=["start"]))
 async def process_start_command(message: Message, state: FSMContext):
     """ Этот хэндлер обрабатывает команду "/start" """
+
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
+        return 0
 
     """ Проверяем, что команды прислал известный пользователь """
     if is_message_from_unknown_user(message):
@@ -253,13 +270,8 @@ async def process_help_command(message: Message):
 @dp.message(F.text == TEXT_BUTTON_1)
 async def process_answer_book(message: Message):
     """ Этот хэндлер срабатывает на просьбу забронировать место """
-    if is_message_from_unknown_user(message):
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
         return 0
 
     if get_user_role(message) == ROLE_AUDITOR:
@@ -408,13 +420,8 @@ def run_bot():
 async def process_answer_send_report(message: Message):
     """ Обработчик запроса на выгрузку отчёта по занятым местам """
 
-    if is_message_from_unknown_user(message):
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
         return 0
 
     if get_user_role(message) == ROLE_CLIENT:
@@ -455,13 +462,8 @@ async def process_answer_send_report(message: Message):
 async def process_answer_free_spots(message: Message):
     """ Обработчик запроса на выгрузку отчёта по свободным местам """
 
-    if is_message_from_unknown_user(message):
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
         return 0
 
     if get_user_role(message) == ROLE_CLIENT:
@@ -494,13 +496,8 @@ async def process_answer_free_spots(message: Message):
 @dp.message(F.text == TEXT_BUTTON_3)
 async def process_cancel(message: Message):
     """ Этот хэндлер срабатывает на просьбу отменить бронь """
-    if is_message_from_unknown_user(message):
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
         return 0
 
     if get_user_role(message) == ROLE_AUDITOR:
@@ -576,13 +573,8 @@ async def process_button_cancel(callback_query: CallbackQuery):
 # Этот хэндлер будет срабатывать на команду добавления нового пользователя в состоянии по умолчанию
 @dp.message(F.text == TEXT_ADD_USER_BUTTON, StateFilter(default_state))
 async def process_adduser_command(message: Message, state: FSMContext):
-    if is_message_from_unknown_user(message):
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
         return 0
 
     if get_user_role(message) == ROLE_AUDITOR:
@@ -685,93 +677,6 @@ async def process_button_choose_role(callback_query: CallbackQuery, state: FSMCo
     )
     new_user.save()
     print("Ну ок")
-
-# # Этот хэндлер будет срабатывать на команду добавления пользователя в состоянии add_user
-# @dp.message(StateFilter(FSMFillForm.add_username))
-# async def process_adduser_username_input(message: Message, state: FSMContext):
-#     username = None
-#     if message.text != "0":
-#         username = message.text
-#     await state.update_data(username=message.text)
-#
-#     await bot.send_message(
-#         chat_id=message.chat.id,
-#         text=INPUT_FIRST_NAME_MESSAGE,
-#         reply_markup=ReplyKeyboardRemove()
-#     )
-#     await state.set_state(FSMFillForm.add_first_name)
-#
-#
-# # Этот хэндлер будет срабатывать на ввод имени нового пользователя
-# @dp.message(StateFilter(FSMFillForm.add_first_name))
-# async def process_adduser_first_name(message: Message, state: FSMContext):
-#     first_name = "-"
-#     if message.text != "0":
-#         first_name = message.text
-#     await state.update_data(first_name=message.text)
-#
-#     await bot.send_message(
-#         chat_id=message.chat.id,
-#         text=INPUT_LAST_NAME_MESSAGE,
-#         reply_markup=ReplyKeyboardRemove()
-#     )
-#     await state.set_state(FSMFillForm.add_last_name)
-
-
-# Этот хэндлер будет предлагать выбрать роль нового пользователя
-# @dp.message(StateFilter(FSMFillForm.add_last_name))
-# async def process_adduser_lastname(message: Message, state: FSMContext):
-#     await state.update_data(last_name=message.text)
-#
-#     await bot.send_message(
-#         chat_id=message.chat.id,
-#         text=CHOOSE_ROLE_MESSAGE,
-#         reply_markup=ReplyKeyboardRemove()
-#     )
-#     await state.set_state(FSMFillForm.choose_role)
-
-
-# # Этот хэндлер будет срабатывать на ввод фамилии нового пользователя
-# @dp.message(StateFilter(FSMFillForm.choose_role))
-# async def process_adduser_choose_role(message: Message, state: FSMContext):
-#     data = await state.get_data()
-#     new_user_username = data['username']
-#     new_user_first_name = data['first_name']
-#     new_user_last_name = data['last_name']
-#     new_user_role_id = message.text
-#
-#     try:
-#         new_user_role_id_int = int(new_user_role_id)
-#     except ValueError:
-#         await bot.send_message(
-#             chat_id=message.chat.id,
-#             text="Что-то не то ... 🤔",
-#             reply_markup=ReplyKeyboardRemove()
-#         )
-#         return
-#
-#     if new_user_role_id_int > 3 or (new_user_role_id_int < 1):
-#         await bot.send_message(
-#             chat_id=message.chat.id,
-#             text=UNCORRECT_CHOICE_MESSAGE,
-#             reply_markup=ReplyKeyboardRemove()
-#         )
-#         return
-#
-#     # Будет ошибка, если нет такого id
-#     User.add_user(
-#         username=new_user_username,
-#         first_name=new_user_first_name,
-#         last_name=new_user_last_name,
-#         role_id=int(new_user_role_id)
-#     )
-#
-#     await bot.send_message(
-#         chat_id=message.chat.id,
-#         text=USER_ADDED_SUCCESS_MESSAGE,
-#         reply_markup=ReplyKeyboardRemove()
-#     )
-#     await state.clear()
 
 
 @dp.message()

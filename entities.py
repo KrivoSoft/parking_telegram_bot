@@ -76,7 +76,7 @@ class User(BaseModel):
     first_name = CharField(null=True)
     last_name = CharField(null=True)
     role_id = ForeignKeyField(Role, backref="role_id")
-
+    telegram_id = IntegerField(null=False)
 
     class Meta:
         table_name = 'users'
@@ -97,7 +97,9 @@ class User(BaseModel):
                         username=user_data["username"],
                         first_name=user_data["first_name"],
                         last_name=user_data["last_name"],
-                        role_id=role.id)
+                        role_id=role.id,
+                        telegram_id=user_data["telegram_id"]
+                    )
                     users_list_obj.append(user_obj)
                     user_obj.save()
 
@@ -133,6 +135,7 @@ class Guest(BaseModel):
     username = CharField(null=True)
     first_name = CharField(null=True)
     last_name = CharField(null=True)
+    telegram_id = IntegerField(null=False)
 
     class Meta:
         table_name = 'guests'
