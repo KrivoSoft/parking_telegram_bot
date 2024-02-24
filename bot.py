@@ -1,18 +1,18 @@
 from datetime import datetime, timedelta, date
-from typing import Union
+
 import yaml
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State, default_state
+from aiogram.types import Message
 from aiogram.types import (
     ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
-from aiogram.types import Message
-from entities import (
-    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
-    get_user_role, get_all_users, create_reservation,
-    Reservation, User, ParkingSpot, Guest, Role)
+
+from entities import Reservation, User, ParkingSpot, Guest, Role
+
+from peewee import DoesNotExist
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место 🅿️"
@@ -42,9 +42,10 @@ UNCORRECT_CHOICE_MESSAGE = "Ну нет такого варианта! 🤦🏻�
 CHOOSE_GUEST_MESSAGE = "Ко мне приходили следующие неизвестные пользователи ... 👁️"
 NO_GUESTS_MESSAGE = "Ко мне никто не приходил. Некого добавлять 🤷🏻‍♀️"
 SUCCESS_MESSAGE = "Успешно"
-TEXT_CHOOSE_USER_FOR_DELETE_MESSAGE = "Хорошо. Мне нужно знать внутренний id кого удаляем:"
+TEXT_CHOOSE_USER_FOR_DELETE_MESSAGE = "Хорошо. Мне нужно знать внутренний id кого удаляем:\n*Если нужна отмена, введите -1"
 TEXT_UNCORRECT_USER_ID_MESSAGE = "Не совсем поняла Вас 🤨"
 TEXT_DELETE_USER_SUCCESS_MESSAGE = "Вычеркнула из списка пользователей. Я буду по нему скучать 😢 ... хотя кого я обманываю 💃🏼."
+TEXT_DELETE_USER_CANCEL_MESSAGE = "Хорошо. Сделаем вид, что ничего не было 💅"
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -95,35 +96,10 @@ bot: Bot = Bot(token=API_TOKEN)
 dp: Dispatcher = Dispatcher()
 
 
-def is_message_from_unknown_user(message: Union[Message, CallbackQuery]) -> bool:
-    requester_username = message.from_user.username
-    if requester_username is None:
-        requester_username = ""
-    requester_user = get_user_by_username(requester_username)
-
-    if requester_user is None:
-        """ Либо такого пользователя нет, либо у нашего пользователя нет username """
-        requester_first_name = message.from_user.first_name
-        requester_last_name = message.from_user.last_name
-        requester_user = get_user_by_name(requester_first_name, requester_last_name)
-        if requester_user is None:
-            """ Вообще нет такого пользователя """
-            return True
-        if requester_user.username == message.from_user.username:
-            """ username у пользователей совпадают. Это наш пользователь. """
-            return False
-        else:
-            """ username отличаются """
-            return True
-    else:
-        return False
-
-
 async def is_user_unauthorized(message: Message):
     authorized_ids = [user.telegram_id for user in User.select()]
 
     if message.from_user.id not in authorized_ids:
-        await message.answer("У вас нет доступа к этой команде.")
         return True
     return False
 
@@ -181,12 +157,8 @@ def create_start_menu_keyboard(
 async def process_start_command(message: Message, state: FSMContext):
     """ Этот хэндлер обрабатывает команду "/start" """
 
+    """ Проверяем зарегистрирован ли пользователь """
     if await is_user_unauthorized(message):
-        await send_refusal_unauthorized(message)
-        return 0
-
-    """ Проверяем, что команды прислал известный пользователь """
-    if is_message_from_unknown_user(message):
 
         """ Проверяем, если этот пользователь уже обращался к боту, то заносить его повторно не нужно """
         guest = Guest.select().where(
@@ -199,16 +171,12 @@ async def process_start_command(message: Message, state: FSMContext):
             new_guest = Guest.create(
                 username=message.from_user.username,
                 first_name=message.from_user.first_name,
-                last_name=message.from_user.last_name
+                last_name=message.from_user.last_name,
+                telegram_id=message.from_user.id
             )
             new_guest.save()
 
-        await message.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await message.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
+        await send_refusal_unauthorized(message)
         return 0
 
     """ Переменные, указывающие на то, какие кнопки меню будут доступны в дальнейшем """
@@ -220,7 +188,9 @@ async def process_start_command(message: Message, state: FSMContext):
     show_free_spots_now = False
 
     """ Топорно пропишем полномочия на кнопки меню """
-    user_role = get_user_role(message)
+    user_telegram_id = message.from_user.id
+    user_role = User.get_user_role(user_telegram_id)
+
     if user_role == ROLE_ADMINISTRATOR:
         show_book_button = True
         show_report_button = True
@@ -233,12 +203,12 @@ async def process_start_command(message: Message, state: FSMContext):
     elif user_role == ROLE_CLIENT:
         show_book_button = True
 
-    requester = get_user_by_username(message.from_user.username)
+    user_id = message.from_user.id
+    requester = User.get_user_by_id(user_id)
+
     if requester is None:
-        requester = get_user_by_name(message.from_user.first_name, message.from_user.last_name)
-        if requester is None:
-            print("Ошибка")
-            return 0
+        print("Ошибка")
+        return 0
 
     current_date = date.today()
     current_time = datetime.now().time()
@@ -283,22 +253,24 @@ async def process_help_command(message: Message):
 @dp.message(F.text == TEXT_BUTTON_1)
 async def process_answer_book(message: Message):
     """ Этот хэндлер срабатывает на просьбу забронировать место """
+
     if await is_user_unauthorized(message):
         await send_refusal_unauthorized(message)
         return 0
 
-    if get_user_role(message) == ROLE_AUDITOR:
+    user_id = message.from_user.id
+    if User.get_user_role(user_id) == ROLE_AUDITOR:
         await message.reply(
             ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
         return 0
 
-    requester = get_user_by_username(message.from_user.username)
+    requester_id = message.from_user.id
+    requester = User.get_user_by_id(requester_id)
+
     if requester is None:
-        requester = get_user_by_name(message.from_user.first_name, message.from_user.last_name)
-        if requester is None:
-            print("Ошибка")
-            return 0
+        print("Ошибка")
+        return 0
 
     current_date = date.today()
     current_time = datetime.now().time()
@@ -336,7 +308,7 @@ async def process_answer_book(message: Message):
     else:
         date_for_book = current_date
 
-    available_spots = get_booking_options(date_for_book)
+    available_spots = ParkingSpot.get_booking_options(date_for_book)
 
     if len(available_spots) > 0:
         inline_keyboard = get_inline_keyboard_for_booking(available_spots, date_for_book)
@@ -355,14 +327,6 @@ async def process_answer_book(message: Message):
 @dp.callback_query(lambda c: c.data.startswith('book'))
 async def process_button_callback(callback_query: CallbackQuery):
     """ Обработчик события нажатия на inline-кнопку с предлагаемой датой брони """
-    if is_message_from_unknown_user(callback_query):
-        await callback_query.reply(
-            UNKNOWN_USER_MESSAGE_1
-        )
-        await callback_query.answer(
-            UNKNOWN_USER_MESSAGE_2
-        )
-        return 0
 
     """ Получаем данные из нажатой кнопки """
     button_data = callback_query.data
@@ -377,26 +341,24 @@ async def process_button_callback(callback_query: CallbackQuery):
         requester_username = callback_query.from_user.first_name
 
     all_spots = ParkingSpot.select()
-    booking_spot_obj = get_parking_spot_by_name(booking_spot, all_spots)
+    booking_spot_obj = ParkingSpot.get_parking_spot_by_name(booking_spot, all_spots)
     print("booking_spot_obj: ", booking_spot_obj)
     if booking_spot_obj is None:
         print("Ошибка. Парковочное место не найдено.")
         return 0
 
-    requester_user = get_user_by_username(requester_username)
+    requester_id = callback_query.from_user.id
+    requester_user = User.get_user_by_id(requester_id)
+
     if requester_user is None:
-        requester_first_name = callback_query.from_user.first_name
-        requester_last_name = callback_query.from_user.last_name
-        requester_user = get_user_by_name(requester_first_name, requester_last_name)
-        if requester_user is None:
-            await bot.send_message(
-                chat_id=callback_query.message.chat.id,
-                text=UNKNOWN_ERROR_MESSAGE)
-            return 0
+        await bot.send_message(
+            chat_id=callback_query.message.chat.id,
+            text=UNKNOWN_ERROR_MESSAGE)
+        return 0
 
     """ Проверяем, что слот свободен. Если да, то создаём запись в БД """
-    if is_spot_free(booking_spot_obj, booking_date):
-        create_reservation(
+    if booking_spot_obj.is_spot_free(booking_date):
+        Reservation.create_reservation(
             spot_id=booking_spot_obj.id,
             date=booking_date,
             user=requester_user
@@ -437,7 +399,8 @@ async def process_answer_send_report(message: Message):
         await send_refusal_unauthorized(message)
         return 0
 
-    if get_user_role(message) == ROLE_CLIENT:
+    user_id = message.from_user.id
+    if User.get_user_role(user_id) == ROLE_CLIENT:
         await message.reply(
             ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
@@ -450,7 +413,11 @@ async def process_answer_send_report(message: Message):
     report = ""
     """ Вывод результатов """
     for reservation in reservations:
-        user_name = reservation.user_id.username
+        try:
+            user_name = reservation.user_id.username
+        except DoesNotExist:
+            user_name = "[ДАННЫЕ УДАЛЕНЫ]"
+
         if (user_name == "") or (user_name is None):
             user_name = " ".join([reservation.user_id.first_name, reservation.user_id.last_name])
         report += f"Дата бронирования: {reservation.booking_date}. "
@@ -479,7 +446,8 @@ async def process_answer_free_spots(message: Message):
         await send_refusal_unauthorized(message)
         return 0
 
-    if get_user_role(message) == ROLE_CLIENT:
+    user_id = message.from_user.id
+    if User.get_user_role(user_id) == ROLE_CLIENT:
         await message.reply(
             ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
@@ -492,7 +460,7 @@ async def process_answer_free_spots(message: Message):
         date_for_book = current_date + timedelta(days=1)
     else:
         date_for_book = current_date
-    available_spots = get_booking_options(date_for_book)
+    available_spots = ParkingSpot.get_booking_options(date_for_book)
 
     spots_name = []
     for one_spot in available_spots:
@@ -513,18 +481,19 @@ async def process_cancel(message: Message):
         await send_refusal_unauthorized(message)
         return 0
 
-    if get_user_role(message) == ROLE_AUDITOR:
+    user_id = message.from_user.id
+    if User.get_user_role(user_id) == ROLE_AUDITOR:
         await message.reply(
             ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
         return 0
 
-    requester = get_user_by_username(message.from_user.username)
+    requester_id = message.from_user.id
+    requester = User.get_user_by_id(requester_id)
+
     if requester is None:
-        requester = get_user_by_name(message.from_user.first_name, message.from_user.last_name)
-        if requester is None:
-            print("Ошибка")
-            return 0
+        print("Ошибка")
+        return 0
 
     current_date = date.today()
     current_time = datetime.now().time()
@@ -590,7 +559,8 @@ async def process_adduser_command(message: Message, state: FSMContext):
         await send_refusal_unauthorized(message)
         return 0
 
-    if get_user_role(message) == ROLE_AUDITOR:
+    user_id = message.from_user.id
+    if User.get_user_role(user_id) == ROLE_AUDITOR:
         await message.reply(
             ACCESS_IS_NOT_ALLOWED_MESSAGE
         )
@@ -686,10 +656,13 @@ async def process_button_choose_role(callback_query: CallbackQuery, state: FSMCo
         username=guest.username,
         first_name=guest.first_name,
         last_name=guest.last_name,
-        role_id=Role.select().where(Role.name == guest_role)
+        role_id=Role.select().where(Role.name == guest_role),
+        telegram_id=guest.telegram_id
     )
     new_user.save()
-    print("Ну ок")
+    guest.delete_guest()
+
+    await callback_query.message.answer(text=USER_ADDED_SUCCESS_MESSAGE)
 
 
 @dp.message(F.text == TEXT_DELETE_USER_BUTTON)
@@ -700,7 +673,7 @@ async def process_delete_user(message: Message, state: FSMContext):
         await send_refusal_unauthorized(message)
         return 0
 
-    all_users_str = get_all_users()
+    all_users_str = User.get_all_users()
     all_users = "\n".join(all_users_str)
 
     await message.reply(text=TEXT_CHOOSE_USER_FOR_DELETE_MESSAGE, reply_markup=ReplyKeyboardRemove())
@@ -715,6 +688,12 @@ async def process_delete_specific_user(message: Message, state: FSMContext):
         user_input = int(message.text)
     except ValueError:
         await message.reply(text=TEXT_UNCORRECT_USER_ID_MESSAGE)
+        return 0
+
+    """ Если пользователь выбирает отмену """
+    if user_input == -1:
+        await message.reply(text=TEXT_DELETE_USER_CANCEL_MESSAGE)
+        await state.clear()
         return 0
 
     User.delete_user_by_id(user_input)
