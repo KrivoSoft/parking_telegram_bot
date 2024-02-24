@@ -10,6 +10,13 @@ with open('settings.yml', 'r') as file:
 parking_spots = CONSTANTS['PARKING_SPOTS']
 db_name = CONSTANTS['DB_NAME']
 
+
+def create_tables() -> None:
+    """ Создание таблиц при создании новой БД """
+    db.connect()
+    db.create_tables([ParkingSpot, Reservation, User, Role, Guest])
+
+
 """ Подгружаем названия ролей """
 administrator_role_name = "ADMINISTRATOR"
 auditor_role_name = "AUDITOR"

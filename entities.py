@@ -1,9 +1,9 @@
+from __future__ import annotations
 from typing import Optional
-
-from peewee import *
+import peewee
 import yaml
-from datetime import timedelta, date, datetime
-from aiogram.types import Message
+from datetime import date
+from peewee import *
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
@@ -13,7 +13,8 @@ reservation_period_days = CONSTANTS['RESERVATION_PERIOD_DAYS']
 db_name = CONSTANTS['DB_NAME']
 db = SqliteDatabase(db_name)
 
-TODAY_DEADLINE_CLOCK = CONSTANTS["TODAY_DEADLINE_CLOCK"]
+TODAY_DEADLINE_CLOCK_FOR_CLIENTS = CONSTANTS["TODAY_DEADLINE_CLOCK_FOR_CLIENTS"]
+TODAY_DEADLINE_CLOCK_FOR_AUDITORS = CONSTANTS["TODAY_DEADLINE_CLOCK_FOR_AUDITORS"]
 
 """ Сущности, описывающие хранимые в БД записи """
 
@@ -47,6 +48,44 @@ class ParkingSpot(BaseModel):
 
         return spots_obj_array
 
+    def is_spot_free(self, checking_date) -> bool:
+        """ Проверка свободно ли парковочное место на определённую дату """
+
+        check_query = Reservation.select().where(
+            Reservation.booking_date == checking_date,
+            Reservation.parking_spot_id == self.id
+        )
+
+        if len(check_query) == 0:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def get_booking_options(date_for_book: date) -> list[ParkingSpot]:
+        """ Функция, получающая доступные для бронирования варианты """
+
+        available_spots_for_book = []
+        all_spots = ParkingSpot.select()
+
+        for one_spot in all_spots:
+            if one_spot.is_spot_free(date_for_book):
+                available_spots_for_book.append(one_spot)
+
+        return available_spots_for_book
+
+    @staticmethod
+    def get_parking_spot_by_name(spot_name: str, all_spots: list[ParkingSpot]) -> Optional[ParkingSpot]:
+        check_query = ParkingSpot.select().where(
+            ParkingSpot.name == spot_name
+        )
+        if len(check_query) == 0:
+            return None
+        else:
+            for one_spot in all_spots:
+                if one_spot.name == spot_name:
+                    return one_spot
+
 
 class Role(BaseModel):
     name = CharField()
@@ -75,12 +114,16 @@ class User(BaseModel):
     first_name = CharField(null=True)
     last_name = CharField(null=True)
     role_id = ForeignKeyField(Role, backref="role_id")
+    telegram_id = IntegerField(null=False)
 
     class Meta:
         table_name = 'users'
 
     def __repr__(self):
         return f"User: {self.username} {self.last_name} {self.first_name}"
+
+    def __str__(self):
+        return f"User: {self.id} {self.username} {self.last_name} {self.first_name}"
 
     @staticmethod
     def load_users(users: list[dict]) -> list:
@@ -95,7 +138,9 @@ class User(BaseModel):
                         username=user_data["username"],
                         first_name=user_data["first_name"],
                         last_name=user_data["last_name"],
-                        role_id=role.id)
+                        role_id=role.id,
+                        telegram_id=user_data["telegram_id"]
+                    )
                     users_list_obj.append(user_obj)
                     user_obj.save()
 
@@ -110,6 +155,43 @@ class User(BaseModel):
                 last_name=last_name,
                 role_id=Role.select().where(Role.id == role_id)
             )
+
+    @staticmethod
+    def get_all_users() -> Optional[list[str]]:
+        users_obj: peewee.ModelSelect = User.select()
+        users_str = []
+        for user in users_obj:
+            users_str.append(str(user))
+        return users_str
+
+    @staticmethod
+    def delete_user_by_id(user_id: int) -> bool:
+        is_success = True
+
+        try:
+            user = User.get(User.id == user_id)
+            user.delete_instance()
+        except Exception:
+            is_success = False
+
+        return is_success
+
+    @staticmethod
+    def get_user_by_id(the_user_id_i_want: int) -> Optional[User]:
+        """ Функция, возвращающая нужного пользователя по его telegram id из БД """
+        query: peewee.ModelSelect = User.select().where(User.telegram_id == the_user_id_i_want)
+
+        if len(query) == 0:
+            return None
+        else:
+            return query[0]
+
+    @staticmethod
+    def get_user_role(user_telegram_id) -> Optional[str]:
+        user = User.get_user_by_id(user_telegram_id)
+        if user is None:
+            return None
+        return user.role_id.name
 
 
 class Reservation(BaseModel):
@@ -126,97 +208,34 @@ class Reservation(BaseModel):
     def get_date(self):
         return self.booking_date
 
-
-def create_tables() -> None:
-    """ Создание таблиц при создании новой БД """
-    db.connect()
-    db.create_tables([ParkingSpot, Reservation, User, Role])
-
-
-def create_reservation(spot_id: int, date: str, user: User) -> None:
-    """ Создание новой записи в БД о бронировании парковочного места """
-    new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, user_id=user.id)
-    new_reservation.save()
+    def create_reservation(spot_id: int, date: str, user: User) -> None:
+        """ Создание новой записи в БД о бронировании парковочного места """
+        new_reservation = Reservation.create(parking_spot_id=spot_id, booking_date=date, user_id=user.id)
+        new_reservation.save()
 
 
-def get_user_by_username(username: str) -> Optional[User]:
-    """ Функция, возвращающая нужного пользователя по username из БД> """
-    if username == "":
-        return None
-    query = User.select()
+class Guest(BaseModel):
+    username = CharField(null=True)
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
+    telegram_id = IntegerField(null=False)
 
-    for user in query:
-        if user.username == username:
-            return user
-    return None
+    class Meta:
+        table_name = 'guests'
 
+    def __repr__(self):
+        return " ".join([str(self.username), str(self.first_name), str(self.last_name)])
 
-def get_user_by_name(first_name: str, last_name: str) -> Optional[User]:
-    """ Функция, возвращающая нужного пользователя по имени и фамилии из БД """
-    query = User.select()
+    def __str__(self):
+        return " ".join([str(self.username), str(self.first_name), str(self.last_name)])
 
-    for user in query:
-        if user.first_name == first_name:
-            if user.last_name == last_name:
-                return user
-    return None
+    def delete_guest(self) -> bool:
+        is_success = True
 
+        try:
+            guest = Guest.get(Guest.id == self.id)
+            guest.delete_instance()
+        except Exception:
+            is_success = False
 
-def is_spot_free(checking_spot: ParkingSpot, checking_date) -> bool:
-    """ Проверка свободно ли парковочное место на определённую дату """
-
-    check_query = Reservation.select().where(
-        Reservation.booking_date == checking_date,
-        Reservation.parking_spot_id == checking_spot.id
-    )
-
-    if len(check_query) == 0:
-        return True
-    else:
-        return False
-
-
-def get_parking_spot_by_name(spot_name: str, all_spots: list[ParkingSpot]) -> Optional[ParkingSpot]:
-    check_query = ParkingSpot.select().where(
-        ParkingSpot.name == spot_name
-    )
-    if len(check_query) == 0:
-        return None
-    else:
-        for one_spot in all_spots:
-            if one_spot.name == spot_name:
-                return one_spot
-
-
-def get_booking_options() -> tuple[list[ParkingSpot], date]:
-    """ Функция, получающая доступные для бронирования варианты """
-
-    current_date = date.today()
-    current_time = datetime.now().time()
-
-    if current_time.hour >= TODAY_DEADLINE_CLOCK:
-        date_for_book = current_date + timedelta(days=1)
-    else:
-        date_for_book = current_date
-
-    available_spots_for_book = []
-    all_spots = ParkingSpot.select()
-
-    for one_spot in all_spots:
-        if is_spot_free(one_spot, date_for_book):
-            available_spots_for_book.append(one_spot)
-
-    return available_spots_for_book, date_for_book
-
-
-def get_user_role(message: Message) -> Optional[str]:
-    name_user = message.from_user.username
-    if (name_user is None) or (name_user == ""):
-        first_name = message.from_user.first_name
-        last_name = message.from_user.last_name
-        user = get_user_by_name(first_name, last_name)
-    else:
-        user = get_user_by_username(name_user)
-    if user is None:
-        return None
-    return user.role_id.name
+        return is_success

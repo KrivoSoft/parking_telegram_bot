@@ -14,20 +14,16 @@ DB_NAME: "parking_spots.db"
 
 # Пользователи, которые будут добавляться в базу при запуске бота
 USERS:
-  - username: "VladimirPn"
+  - username: "krivosoft"
     first_name: "Vladimir"
     last_name: "Pn"
     role: "ADMINISTRATOR"
+    telegram_id: 1543421535
+    # role может принимать значения: ADMINISTRATOR, AUDITOR или CLIENT
+    # Если username нет, то вставить пустую строку ""
 
-  - username: "SomeAnotherUsernameOfAdmin"
-    first_name: "Petr"
-    last_name: "Petrov"
-    role: "AUDITOR"
-
-  - username: "" # <- Если username нет, то вставить пустую строку, как в примере
-    first_name: "Nikita"
-    last_name: "Nikitin"
-    role: "CLIENT"
-
-# Время в 24-часовом формате, с которого не будет доступно бронирование парковочных мест на сегодня
-TODAY_DEADLINE_CLOCK: 7
+# Время в 24-часовом формате
+TODAY_DEADLINE_CLOCK_FOR_CLIENTS: 7 # <- Клиенты могут бронировать места на сегодняшний день, до 7 часов.
+# После - на следующий день
+TODAY_DEADLINE_CLOCK_FOR_AUDITORS: 9 # <- Аудиторы получают отчёт за сегодняшний день до 9 часов.
+# После - за следующий день.
