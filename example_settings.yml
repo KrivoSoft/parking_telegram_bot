@@ -17,7 +17,7 @@ USERS:
   - username: "krivosoft"
     first_name: "Vladimir"
     last_name: "Pn"
-    role: "AUDITOR"
+    role: "ADMINISTRATOR"
     telegram_id: 1543421535
     # role может принимать значения: ADMINISTRATOR, AUDITOR или CLIENT
     # Если username нет, то вставить пустую строку ""

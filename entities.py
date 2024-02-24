@@ -4,6 +4,7 @@ from peewee import *
 import yaml
 from datetime import timedelta, date, datetime
 from aiogram.types import Message
+from peewee import ModelSelect
 
 # Получаем данные из файла настроек
 with open('settings.yml', 'r') as file:
@@ -84,6 +85,9 @@ class User(BaseModel):
     def __repr__(self):
         return f"User: {self.username} {self.last_name} {self.first_name}"
 
+    def __str__(self):
+        return f"User: {self.id} {self.username} {self.last_name} {self.first_name}"
+
     @staticmethod
     def load_users(users: list[dict]) -> list:
         """ Функция загрузки пользователей из конфига """
@@ -114,6 +118,18 @@ class User(BaseModel):
                 last_name=last_name,
                 role_id=Role.select().where(Role.id == role_id)
             )
+
+    @staticmethod
+    def delete_user_by_id(user_id: int) -> bool:
+        is_success = True
+
+        try:
+            user = User.get(User.id == user_id)
+            user.delete_instance()
+        except Exception:
+            is_success = False
+
+        return is_success
 
 
 class Reservation(BaseModel):
@@ -232,3 +248,11 @@ def get_user_role(message: Message) -> Optional[str]:
     if user is None:
         return None
     return user.role_id.name
+
+
+def get_all_users() -> Optional[list[str]]:
+    users_obj: ModelSelect = User.select()
+    users_str = []
+    for user in users_obj:
+        users_str.append(str(user))
+    return users_str

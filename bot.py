@@ -10,8 +10,9 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.types import Message
 from entities import (
-    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name, get_user_role,
-    create_reservation, Reservation, User, ParkingSpot, Guest, Role)
+    get_booking_options, is_spot_free, get_parking_spot_by_name, get_user_by_username, get_user_by_name,
+    get_user_role, get_all_users, create_reservation,
+    Reservation, User, ParkingSpot, Guest, Role)
 
 """ Текст, который будет выводить бот в сообщениях """
 TEXT_BUTTON_1 = "Забронируй мне место 🅿️"
@@ -31,6 +32,7 @@ UNKNOWN_ERROR_MESSAGE = "Произошла какая-то ошибка. Мне
 NO_RESERVATIONS_MESSAGE = "Кажется, пока никто ничего не забронировал 😒"
 CANCEL_SUCCESS_MESSAGE = "Хорошо, удалила. 🫴🏻"
 TEXT_ADD_USER_BUTTON = "Добавить пользователя 👤"
+TEXT_DELETE_USER_BUTTON = "Удалить пользователя 🪣"
 INPUT_USERNAME_MESSAGE = "Введите username пользователя.\nЕсли его нет, введите 0"
 INPUT_FIRST_NAME_MESSAGE = "Введите имя (first name) пользователя. \nЕсли его нет, введите 0"
 INPUT_LAST_NAME_MESSAGE = "Введите фамилию (last name) пользователя\nЕсли его нет, введите 0"
@@ -40,6 +42,9 @@ UNCORRECT_CHOICE_MESSAGE = "Ну нет такого варианта! 🤦🏻�
 CHOOSE_GUEST_MESSAGE = "Ко мне приходили следующие неизвестные пользователи ... 👁️"
 NO_GUESTS_MESSAGE = "Ко мне никто не приходил. Некого добавлять 🤷🏻‍♀️"
 SUCCESS_MESSAGE = "Успешно"
+TEXT_CHOOSE_USER_FOR_DELETE_MESSAGE = "Хорошо. Мне нужно знать внутренний id кого удаляем:"
+TEXT_UNCORRECT_USER_ID_MESSAGE = "Не совсем поняла Вас 🤨"
+TEXT_DELETE_USER_SUCCESS_MESSAGE = "Вычеркнула из списка пользователей. Я буду по нему скучать 😢 ... хотя кого я обманываю 💃🏼."
 
 ROLE_ADMINISTRATOR = "ADMINISTRATOR"
 ROLE_AUDITOR = "AUDITOR"
@@ -59,6 +64,7 @@ class FSMFillForm(StatesGroup):
     add_user = State()  # Состояние ожидания добавления нового пользователя в БД
     choose_role = State()  # Состояние ожидания выбора роли нового пользователя
     book_spot = State()  # Состаяние ожидания подтверждение на бронирование места
+    choose_user_for_delete = State()  # Состояние выбора пользователя для удаления
 
 
 def get_inline_keyboard_for_booking(
@@ -131,6 +137,7 @@ def create_start_menu_keyboard(
         is_show_report_button: bool,
         is_show_cancel_button: bool,
         is_show_adduser_button: bool = False,
+        is_show_delete_user_button: bool = False,
         is_show_free_spots_button: bool = False
 ) -> ReplyKeyboardMarkup:
     """ Создаёт клавиатуру, которая будет выводиться на команду /start """
@@ -138,6 +145,7 @@ def create_start_menu_keyboard(
     report_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_2)
     cancel_reservation_button: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_3)
     add_user_button: KeyboardButton = KeyboardButton(text=TEXT_ADD_USER_BUTTON)
+    delete_user_button: KeyboardButton = KeyboardButton(text=TEXT_DELETE_USER_BUTTON)
     show_free_spots: KeyboardButton = KeyboardButton(text=TEXT_BUTTON_4)
 
     buttons_list = []
@@ -155,6 +163,8 @@ def create_start_menu_keyboard(
         buttons_list.append([cancel_reservation_button])
     if is_show_adduser_button:
         buttons_list.append([add_user_button])
+    if is_show_delete_user_button:
+        buttons_list.append([delete_user_button])
     if is_show_free_spots_button:
         buttons_list.append([show_free_spots])
 
@@ -206,6 +216,7 @@ async def process_start_command(message: Message, state: FSMContext):
     show_report_button = False
     show_cancel_button = False
     show_add_user_button = False
+    show_delete_user_button = False
     show_free_spots_now = False
 
     """ Топорно пропишем полномочия на кнопки меню """
@@ -215,6 +226,7 @@ async def process_start_command(message: Message, state: FSMContext):
         show_report_button = True
         show_add_user_button = True
         show_free_spots_now = True
+        show_delete_user_button = True
     elif user_role == ROLE_AUDITOR:
         show_report_button = True
         show_free_spots_now = True
@@ -256,6 +268,7 @@ async def process_start_command(message: Message, state: FSMContext):
             show_report_button,
             show_cancel_button,
             show_add_user_button,
+            show_delete_user_button,
             show_free_spots_now
         )
     )
@@ -677,6 +690,37 @@ async def process_button_choose_role(callback_query: CallbackQuery, state: FSMCo
     )
     new_user.save()
     print("Ну ок")
+
+
+@dp.message(F.text == TEXT_DELETE_USER_BUTTON)
+async def process_delete_user(message: Message, state: FSMContext):
+    """ Обработчик команды удаления пользователя """
+
+    if await is_user_unauthorized(message):
+        await send_refusal_unauthorized(message)
+        return 0
+
+    all_users_str = get_all_users()
+    all_users = "\n".join(all_users_str)
+
+    await message.reply(text=TEXT_CHOOSE_USER_FOR_DELETE_MESSAGE, reply_markup=ReplyKeyboardRemove())
+    await message.answer(text=all_users)
+    await state.set_state(FSMFillForm.choose_user_for_delete)
+
+
+@dp.message(StateFilter(FSMFillForm.choose_user_for_delete))
+async def process_delete_specific_user(message: Message, state: FSMContext):
+    """ Обработчик команды удаления пользователя """
+    try:
+        user_input = int(message.text)
+    except ValueError:
+        await message.reply(text=TEXT_UNCORRECT_USER_ID_MESSAGE)
+        return 0
+
+    User.delete_user_by_id(user_input)
+
+    await message.reply(text=TEXT_DELETE_USER_SUCCESS_MESSAGE)
+    await state.clear()
 
 
 @dp.message()
