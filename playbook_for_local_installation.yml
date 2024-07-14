@@ -1,0 +1,30 @@
+---
+- name: Установка пакетов, создание виртуальной среды, загрузка кода, установка библиотек, обновление файла настроек и запуск приложения.
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Установка пакетов python3-pip и python 3
+      apt:
+        name: "{{ item }}"\
+        state: present
+      with_items:
+        - python3-pip
+        - python3.11-venv
+
+    - name: Создание виртуальной среды и её активация.
+      command: python3 -m venv venv
+      args:
+        chdir: {{ ansible_env.PATH }}
+        environment:
+          PATH: "{{  ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+        register: venv_output
+    - name: Активация виртуальной среды.
+      command: source venv/bin/activate
+      args:
+        chdir: {{ ansible_env.PATH }}
+      when: venv_output is changed
+
+    - name: Установка библиотек из requirements.txt
+      pip:
+        requirements: {{ ansible_env.HOME }}/Anna/requirements.txt
+          executable: {{ ansible_env.HOME }}/venv/bin/pip
