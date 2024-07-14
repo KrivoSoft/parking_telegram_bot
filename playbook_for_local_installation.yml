@@ -18,7 +18,7 @@
         cmd: python3 -m venv env
       args:
         chdir: "{{ ansible_env.HOME }}"
-        register: venv_output
+      register: venv_output
 
     - name: Активация виртуальной среды.
       command: source venv/bin/activate
