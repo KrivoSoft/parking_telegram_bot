@@ -14,16 +14,14 @@
         state: present
 
     - name: Создание виртуальной среды и её активация.
-      command: python3 -m venv venv
-      args:
-        chdir: "{{ ansible_env.PATH }}"
-        environment:
-          PATH: "{{  ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
-        register: venv_output
+      ansible.builtin.command: python3 -m venv env
+      chdir: "{{ ansible_env.HOME }}"
+      register: venv_output
+
     - name: Активация виртуальной среды.
       command: source venv/bin/activate
       args:
-        chdir: "{{ ansible_env.PATH }}"
+        chdir: "{{ ansible_env.HOME }}/env"
       when: venv_output is changed
 
     - name: Установка библиотек из requirements.txt
