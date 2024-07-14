@@ -14,7 +14,8 @@
         state: present
 
     - name: Создание виртуальной среды и её активация.
-      ansible.builtin.command: python3 -m venv env
+      ansible.builtin.command:
+      cmd: python3 -m venv env
       chdir: "{{ ansible_env.HOME }}"
       register: venv_output
 
