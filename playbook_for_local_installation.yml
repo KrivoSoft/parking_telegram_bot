@@ -27,4 +27,4 @@
     - name: Установка библиотек из requirements.txt
       pip:
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
-        executable: {{ ansible_env.HOME }}/venv/bin/pip
+        executable: "{{ ansible_env.HOME }}/venv/bin/pip"
