@@ -21,7 +21,7 @@
       register: venv_output
 
     - name: Активация виртуальной среды.
-      command: source env/bin/activate
+      ansible.builtin.shell: source env/bin/activate
       args:
         chdir: "{{ ansible_env.HOME }}"
       when: venv_output is changed
