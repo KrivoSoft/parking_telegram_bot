@@ -22,6 +22,5 @@
 
     - name: Установка библиотек из requirements.txt
       ansible.builtin.pip:
-        name: virtualenv
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
         virtualenv: Anna/env/bin
