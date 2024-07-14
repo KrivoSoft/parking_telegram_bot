@@ -5,7 +5,7 @@
   tasks:
     - name: Установка пакетов python3-pip и python 3
       apt:
-        name: "{{ item }}"\
+        name: "{{ item }}"
         state: present
       with_items:
         - python3-pip
