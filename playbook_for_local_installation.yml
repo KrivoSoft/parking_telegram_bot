@@ -3,13 +3,15 @@
   hosts: localhost
   become: yes
   tasks:
-    - name: Установка пакетов python3-pip и python 3
+    - name: Установка пакета python3-pip
       apt:
-        name: "{{ item }}"
+        name: python3-pip
         state: present
-      with_items:
-        - python3-pip
-        - python3.11-venv
+
+    - name: Установка пакета python3.11-venv
+      apt:
+        name: python3.11-venv
+        state: present
 
     - name: Создание виртуальной среды и её активация.
       command: python3 -m venv venv
