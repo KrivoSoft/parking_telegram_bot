@@ -17,16 +17,11 @@
       ansible.builtin.command:
         cmd: python3 -m venv env
       args:
-        chdir: "{{ ansible_env.HOME }}"
+        chdir: "{{ ansible_env.HOME }}/Anna"
       register: venv_output
 
-    - name: Активация виртуальной среды.
-      ansible.builtin.shell: source {{ ansible_env.HOME }}/env/bin/activate
-      args:
-        chdir: "{{ ansible_env.HOME }}"
-      when: venv_output is changed
-
     - name: Установка библиотек из requirements.txt
-      pip:
+      ansible.builtin.pip:
+        name: virtualenv
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
-        executable: "{{ ansible_env.HOME }}/venv/bin/pip"
+        virtualenv: Anna/env/bin
