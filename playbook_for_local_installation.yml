@@ -8,14 +8,14 @@
         name: python3-pip
         state: present
 
-    - name: Установка пакета python3.11-venv
+    - name: Установка пакета python3-virtualenv
       apt:
-        name: python3.11-venv
+        name: python3-virtualenv
         state: present
 
     - name: Создание виртуальной среды
       ansible.builtin.command:
-        cmd: python3 -m venv env
+        cmd: virtualenv env
       args:
         chdir: "{{ ansible_env.HOME }}/Anna"
       register: venv_output
@@ -23,4 +23,4 @@
     - name: Установка библиотек из requirements.txt
       ansible.builtin.pip:
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
-        virtualenv: Anna/env/bin
+        virtualenv: Anna/env
