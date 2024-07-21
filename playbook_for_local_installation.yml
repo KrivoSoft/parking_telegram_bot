@@ -46,7 +46,7 @@
         virtualenv: "{{ ansible_env.HOME }}/Anna/env"
       register: req_output
 
-    - name: Результат успешного запуска
+    - name: Результат установки библиотек
       ansible.builtin.debug:
         msg: "{{ req_output }}"
 
