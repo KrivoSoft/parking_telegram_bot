@@ -48,6 +48,6 @@
 
     - name: Замена токена в конфигурационном файле
       ansible.builtin.replace:
-        path: /etc/hosts
+        path: "{{ ansible_env.HOME }}/Anna/settings.yml"
         regexp: 'YOUR_TOKEN'
         replace: "{{ secret_token }}"
