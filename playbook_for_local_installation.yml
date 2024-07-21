@@ -40,3 +40,14 @@
       ansible.builtin.pip:
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
         virtualenv: "{{ ansible_env.HOME }}/Anna/env"
+
+    - name: Копирование конфигурационного файла
+      ansible.builtin.copy:
+        src: "{{ ansible_env.HOME }}/Anna/example_settings.yml"
+        dest: "{{ ansible_env.HOME }}/Anna/settings.yml"
+
+    - name: Замена токена в конфигурационном файле
+      ansible.builtin.replace:
+        path: /etc/hosts
+        regexp: 'YOUR_TOKEN'
+        replace: '{{ secret_token }}'
