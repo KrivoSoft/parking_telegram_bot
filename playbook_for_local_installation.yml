@@ -61,3 +61,14 @@
         path: "{{ ansible_env.HOME }}/Anna/settings.yml"
         regexp: '\["333", "464", "501"\]'
         replace: "{{ parking_spots }}"
+
+    - name: Запуск бота
+      ansible.builtin.command:
+        cmd: nohup run.py
+      args:
+        chdir: "{{ ansible_env.HOME }}/Anna"
+      register: nohup_output
+
+    - name: Результат успешного запуска
+      ansible.builtin.debug:
+        msg: {{ nohup_output }}
