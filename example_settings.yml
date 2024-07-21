@@ -1,5 +1,5 @@
 # Токен для бота в телеграме
-API_TOKEN: 'YOUR TOKEN'
+API_TOKEN: 'YOUR_TOKEN'
 
 # Период, на который будет доступно бронирование парковочных мест
 RESERVATION_PERIOD_DAYS: 4

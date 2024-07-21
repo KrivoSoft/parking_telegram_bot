@@ -2,6 +2,11 @@
 - name: Установка пакетов, создание виртуальной среды, загрузка кода, установка библиотек, обновление файла настроек и запуск приложения.
   hosts: localhost
   become: no
+  vars_prompt:
+    - name: secret_token
+      prompt: Введите telegram-token
+      private: false
+
   tasks:
     - name: Установка пакета python3-pip
       apt:
@@ -12,6 +17,17 @@
       apt:
         name: python3-virtualenv
         state: present
+
+    - name: Установка пакета git
+      apt:
+        name: git
+        state: present
+
+    - name: Клонирование репозитория
+      ansible.builtin.git:
+        repo: 'https://github.com/KrivoSoft/Anna.git'
+        dest: "{{ ansible_env.HOME }}"
+        clone: yes
 
     - name: Создание виртуальной среды
       ansible.builtin.command:
