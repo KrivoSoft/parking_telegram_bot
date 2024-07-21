@@ -48,7 +48,7 @@
 
     - name: Результат успешного запуска
       ansible.builtin.debug:
-      msg: "{{ req_output }}"
+        msg: "{{ req_output }}"
 
     - name: Копирование конфигурационного файла
       ansible.builtin.copy:
