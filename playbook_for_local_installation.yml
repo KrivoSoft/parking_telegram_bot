@@ -50,4 +50,4 @@
       ansible.builtin.replace:
         path: /etc/hosts
         regexp: 'YOUR_TOKEN'
-        replace: '{{ secret_token }}'
+        replace: "{{ secret_token }}"
