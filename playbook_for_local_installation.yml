@@ -71,4 +71,4 @@
 
     - name: Результат успешного запуска
       ansible.builtin.debug:
-        msg: {{ nohup_output }}
+        msg: "{{ nohup_output }}. \n Теперь можно проверять работу бота."
