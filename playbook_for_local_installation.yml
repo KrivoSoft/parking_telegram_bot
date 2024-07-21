@@ -7,6 +7,10 @@
       prompt: Введите telegram-token
       private: false
 
+    - name: parking_spots
+      prompt: 'Введите названия парковочных мест. Пример: ["333", "464", "501"]'
+      private: false
+
   tasks:
     - name: Установка пакета python3-pip
       apt:
@@ -51,3 +55,9 @@
         path: "{{ ansible_env.HOME }}/Anna/settings.yml"
         regexp: 'YOUR_TOKEN'
         replace: "{{ secret_token }}"
+
+    - name: Замена названий парковочных мест в конфигурационном файле
+      ansible.builtin.replace:
+        path: "{{ ansible_env.HOME }}/Anna/settings.yml"
+        regexp: '["333", "464", "501"]'
+        replace: "{{ parking_spots }}"
