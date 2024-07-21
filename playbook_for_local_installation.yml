@@ -64,7 +64,7 @@
 
     - name: Запуск бота
       ansible.builtin.command:
-        cmd: nohup run.py
+        cmd: nohup python3 run.py
       args:
         chdir: "{{ ansible_env.HOME }}/Anna"
       register: nohup_output
