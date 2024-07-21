@@ -44,7 +44,7 @@
       ansible.builtin.pip:
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
         virtualenv: "{{ ansible_env.HOME }}/Anna/env"
-        executable: "{{ ansible_env.HOME }}/Anna/env/pip3"
+        executable: env
 
     - name: Копирование конфигурационного файла
       ansible.builtin.copy:
