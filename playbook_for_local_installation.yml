@@ -68,12 +68,6 @@
         replace: "{{ parking_spots }}"
 
     - name: Запуск бота
-      ansible.builtin.command:
-        cmd: nohup python3 run.py
-      args:
-        chdir: "{{ ansible_env.HOME }}/Anna"
-      register: nohup_output
-
-    - name: Результат успешного запуска
-      ansible.builtin.debug:
-        msg: "{{ nohup_output }}. \n Теперь можно проверять работу бота."
+      command: nohup python3 run.py &
+      environment:
+        PATH: "{{ ansible_env.HOME }}/Anna/env/bin:$PATH"
