@@ -63,7 +63,7 @@
 
     - name: Запуск бота в виртуальном окружении
       ansible.builtin.command:
-        cmd: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
+        cmd: "{{ ansible_env.HOME }}/Anna/env/bin/python3 {{ ansible_env.HOME }}/Anna/run.py &"
       register: run_output
 
     - name: Результат запуска
