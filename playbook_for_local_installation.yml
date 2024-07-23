@@ -38,13 +38,11 @@
         cmd: virtualenv env
       args:
         chdir: "{{ ansible_env.HOME }}/Anna"
-      register: venv_output
 
     - name: Установка библиотек из requirements.txt
       ansible.builtin.pip:
         requirements: "{{ ansible_env.HOME }}/Anna/requirements.txt"
         virtualenv: "{{ ansible_env.HOME }}/Anna/env"
-      register: req_output
 
     - name: Копирование конфигурационного файла
       ansible.builtin.copy:
@@ -63,5 +61,10 @@
         regexp: '\["333", "464", "501"\]'
         replace: "{{ parking_spots }}"
 
-    - name: Выполнить команду в активированном окружении
+    - name: Запуск бота в виртуальном окружении
       shell: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
+      register: run_output
+
+    - name: Результат запуска
+      ansible.builtin.debug:
+        msg: "{{ run_output }}"
