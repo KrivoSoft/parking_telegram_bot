@@ -62,7 +62,8 @@
         replace: "{{ parking_spots }}"
 
     - name: Запуск бота в виртуальном окружении
-      shell: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
+      ansible.builtin.command:
+        cmd: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
       register: run_output
 
     - name: Результат запуска
