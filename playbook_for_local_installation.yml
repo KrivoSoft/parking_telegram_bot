@@ -46,10 +46,6 @@
         virtualenv: "{{ ansible_env.HOME }}/Anna/env"
       register: req_output
 
-    - name: Результат установки библиотек
-      ansible.builtin.debug:
-        msg: "{{ req_output }}"
-
     - name: Копирование конфигурационного файла
       ansible.builtin.copy:
         src: "{{ ansible_env.HOME }}/Anna/example_settings.yml"
@@ -66,11 +62,6 @@
         path: "{{ ansible_env.HOME }}/Anna/settings.yml"
         regexp: '\["333", "464", "501"\]'
         replace: "{{ parking_spots }}"
-
-    - name: Запуск бота
-      command: nohup python3 run.py &
-      environment:
-        PATH: "{{ ansible_env.HOME }}/Anna/env/bin:$PATH"
 
     - name: Выполнить команду в активированном окружении
       shell: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
