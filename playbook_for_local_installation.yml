@@ -71,3 +71,6 @@
       command: nohup python3 run.py &
       environment:
         PATH: "{{ ansible_env.HOME }}/Anna/env/bin:$PATH"
+
+    - name: Выполнить команду в активированном окружении
+      shell: "source {{ ansible_env.HOME }}/Anna/env/bin/activate && nohup python3 run.py &"
